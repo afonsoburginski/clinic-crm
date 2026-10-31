@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RECORD_KIND_LABELS } from "@/domain/clinical-record"
@@ -48,7 +48,7 @@ export function RecordFormDialog({ patientId, record, onClose }: { patientId: st
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>
             {record?.rectifiesId ? "Editar retificação" : record ? "Editar rascunho" : "Novo registro"}
@@ -60,58 +60,60 @@ export function RecordFormDialog({ patientId, record, onClose }: { patientId: st
           </DialogDescription>
         </DialogHeader>
 
-        {record?.rectificationReason && (
-          <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Motivo da retificação:</span> {record.rectificationReason}
-          </p>
-        )}
-
-        <form id="record-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}>
-          <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
-            <FormField id="record-kind" label="Tipo" required>
-              <Controller
-                control={form.control}
-                name="kind"
-                render={({ field }) => (
-                  <SimpleSelect id="record-kind" value={field.value} onChange={field.onChange} options={KIND_OPTIONS} disabled={!!record} />
-                )}
-              />
-            </FormField>
-            <FormField id="record-title" label="Título" required error={errors.title?.message}>
-              <Input id="record-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
-            </FormField>
-          </div>
-
-          {kind === "evolution" && (
-            <FormField id="record-appointment" label="Atendimento (opcional)" hint="Vincule a evolução a um atendimento seu com este paciente.">
-              <div className="flex gap-2">
-                <Controller
-                  control={form.control}
-                  name="appointmentId"
-                  render={({ field }) => (
-                    <SimpleSelect
-                      id="record-appointment"
-                      value={field.value}
-                      onChange={field.onChange}
-                      options={appointmentOptions}
-                      placeholder={appointmentOptions.length ? "Sem vínculo" : "Nenhum atendimento seu encontrado"}
-                      disabled={!appointmentOptions.length}
-                    />
-                  )}
-                />
-                {appointmentId && (
-                  <Button type="button" variant="ghost" onClick={() => form.setValue("appointmentId", "")}>
-                    Remover
-                  </Button>
-                )}
-              </div>
-            </FormField>
+        <DialogBody>
+          {record?.rectificationReason && (
+            <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Motivo da retificação:</span> {record.rectificationReason}
+            </p>
           )}
 
-          <FormField id="record-content" label="Conteúdo" error={errors.content?.message} hint="Mínimo de 20 caracteres para finalizar.">
-            <Textarea id="record-content" rows={12} aria-invalid={!!errors.content || undefined} {...form.register("content")} />
-          </FormField>
-        </form>
+          <form id="record-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}>
+            <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
+              <FormField id="record-kind" label="Tipo" required>
+                <Controller
+                  control={form.control}
+                  name="kind"
+                  render={({ field }) => (
+                    <SimpleSelect id="record-kind" value={field.value} onChange={field.onChange} options={KIND_OPTIONS} disabled={!!record} />
+                  )}
+                />
+              </FormField>
+              <FormField id="record-title" label="Título" required error={errors.title?.message}>
+                <Input id="record-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
+              </FormField>
+            </div>
+
+            {kind === "evolution" && (
+              <FormField id="record-appointment" label="Atendimento (opcional)" hint="Vincule a evolução a um atendimento seu com este paciente.">
+                <div className="flex gap-2">
+                  <Controller
+                    control={form.control}
+                    name="appointmentId"
+                    render={({ field }) => (
+                      <SimpleSelect
+                        id="record-appointment"
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={appointmentOptions}
+                        placeholder={appointmentOptions.length ? "Sem vínculo" : "Nenhum atendimento seu encontrado"}
+                        disabled={!appointmentOptions.length}
+                      />
+                    )}
+                  />
+                  {appointmentId && (
+                    <Button type="button" variant="ghost" onClick={() => form.setValue("appointmentId", "")}>
+                      Remover
+                    </Button>
+                  )}
+                </div>
+              </FormField>
+            )}
+
+            <FormField id="record-content" label="Conteúdo" error={errors.content?.message} hint="Mínimo de 20 caracteres para finalizar.">
+              <Textarea id="record-content" rows={12} aria-invalid={!!errors.content || undefined} {...form.register("content")} />
+            </FormField>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose}>

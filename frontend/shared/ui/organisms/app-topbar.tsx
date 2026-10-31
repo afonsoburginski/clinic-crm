@@ -22,7 +22,7 @@ export function AppTopbar({ user }: { user: User | null }) {
       <div className="page-container flex h-full items-center gap-2">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger render={<Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menu" />}><Menu aria-hidden /></SheetTrigger>
-          <SheetContent side="left" className="bg-sidebar data-[side=left]:w-72">
+          <SheetContent side="left" size="nav" className="bg-sidebar">
             <SheetHeader><SheetTitle><BrandMark /></SheetTitle></SheetHeader>
             <SheetBody className="flex flex-col gap-5 px-3">
               <AppSidebarNav user={user} onNavigate={() => setMenuOpen(false)} />

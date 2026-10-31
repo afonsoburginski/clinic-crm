@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
 import { Input } from "@/components/ui/input"
 import { clinicDateKey } from "@/domain/clinic-time"
@@ -37,7 +37,7 @@ export function EntryFormDialog({ entry, defaultCompetence, onClose }: { entry?:
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{entry ? `Editar ${entry.code}` : "Novo lançamento"}</DialogTitle>
           <DialogDescription>
@@ -45,72 +45,74 @@ export function EntryFormDialog({ entry, defaultCompetence, onClose }: { entry?:
           </DialogDescription>
         </DialogHeader>
 
-        <form id="entry-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((v) => save.mutate(v, { onSuccess: onClose }))}>
-          <Controller
-            control={form.control}
-            name="kind"
-            render={({ field }) => (
-              <HaloToggleGroup
-                items={[
-                  { value: "income", label: "Receita" },
-                  { value: "expense", label: "Despesa" },
-                ]}
-                value={field.value}
-                onValueChange={(v) => v && field.onChange(v)}
-                disabled={!!entry}
-                className="self-start"
-              />
-            )}
-          />
-
-          <FormField id="entry-description" label="Descrição" required error={errors.description?.message} hint="Máximo de 120 caracteres. Não inclua informações clínicas.">
-            <Input id="entry-description" aria-invalid={!!errors.description || undefined} {...form.register("description")} />
-          </FormField>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="entry-category" label="Categoria" required error={errors.category?.message}>
-              <Input id="entry-category" aria-invalid={!!errors.category || undefined} {...form.register("category")} />
-            </FormField>
-            <FormField id="entry-counterparty" label="Contraparte" error={errors.counterparty?.message} hint="Quem paga ou recebe, se couber.">
-              <Input id="entry-counterparty" {...form.register("counterparty")} />
-            </FormField>
-          </div>
-
-          <FormField id="entry-patient" label="Paciente (opcional)" hint="Só a referência administrativa; nenhum dado clínico é lido ou gravado.">
-            <div className="flex gap-2">
-              <Controller
-                control={form.control}
-                name="patientId"
-                render={({ field }) => (
-                  <SimpleSelect
-                    id="entry-patient"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Sem paciente"
-                    options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
-                  />
-                )}
-              />
-              {patientId && (
-                <Button type="button" variant="ghost" onClick={() => form.setValue("patientId", "")}>
-                  Remover
-                </Button>
+        <DialogBody>
+          <form id="entry-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((v) => save.mutate(v, { onSuccess: onClose }))}>
+            <Controller
+              control={form.control}
+              name="kind"
+              render={({ field }) => (
+                <HaloToggleGroup
+                  items={[
+                    { value: "income", label: "Receita" },
+                    { value: "expense", label: "Despesa" },
+                  ]}
+                  value={field.value}
+                  onValueChange={(v) => v && field.onChange(v)}
+                  disabled={!!entry}
+                  className="self-start"
+                />
               )}
-            </div>
-          </FormField>
+            />
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <FormField id="entry-competence" label="Competência" required error={errors.competence?.message}>
-              <Input id="entry-competence" type="month" aria-invalid={!!errors.competence || undefined} {...form.register("competence")} />
+            <FormField id="entry-description" label="Descrição" required error={errors.description?.message} hint="Máximo de 120 caracteres. Não inclua informações clínicas.">
+              <Input id="entry-description" aria-invalid={!!errors.description || undefined} {...form.register("description")} />
             </FormField>
-            <FormField id="entry-due" label="Vencimento" required error={errors.dueDate?.message}>
-              <Input id="entry-due" type="date" aria-invalid={!!errors.dueDate || undefined} {...form.register("dueDate")} />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField id="entry-category" label="Categoria" required error={errors.category?.message}>
+                <Input id="entry-category" aria-invalid={!!errors.category || undefined} {...form.register("category")} />
+              </FormField>
+              <FormField id="entry-counterparty" label="Contraparte" error={errors.counterparty?.message} hint="Quem paga ou recebe, se couber.">
+                <Input id="entry-counterparty" {...form.register("counterparty")} />
+              </FormField>
+            </div>
+
+            <FormField id="entry-patient" label="Paciente (opcional)" hint="Só a referência administrativa; nenhum dado clínico é lido ou gravado.">
+              <div className="flex gap-2">
+                <Controller
+                  control={form.control}
+                  name="patientId"
+                  render={({ field }) => (
+                    <SimpleSelect
+                      id="entry-patient"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Sem paciente"
+                      options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
+                    />
+                  )}
+                />
+                {patientId && (
+                  <Button type="button" variant="ghost" onClick={() => form.setValue("patientId", "")}>
+                    Remover
+                  </Button>
+                )}
+              </div>
             </FormField>
-            <FormField id="entry-amount" label="Valor (R$)" required error={errors.amount?.message}>
-              <Input id="entry-amount" type="number" inputMode="decimal" step="0.01" min="0" aria-invalid={!!errors.amount || undefined} {...form.register("amount", { valueAsNumber: true })} />
-            </FormField>
-          </div>
-        </form>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField id="entry-competence" label="Competência" required error={errors.competence?.message}>
+                <Input id="entry-competence" type="month" aria-invalid={!!errors.competence || undefined} {...form.register("competence")} />
+              </FormField>
+              <FormField id="entry-due" label="Vencimento" required error={errors.dueDate?.message}>
+                <Input id="entry-due" type="date" aria-invalid={!!errors.dueDate || undefined} {...form.register("dueDate")} />
+              </FormField>
+              <FormField id="entry-amount" label="Valor (R$)" required error={errors.amount?.message}>
+                <Input id="entry-amount" type="number" inputMode="decimal" step="0.01" min="0" aria-invalid={!!errors.amount || undefined} {...form.register("amount", { valueAsNumber: true })} />
+              </FormField>
+            </div>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose}>

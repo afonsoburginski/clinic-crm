@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { passwordResetSchema, type PasswordResetInput } from "@/domain/schemas"
 import type { UserAccount } from "@/domain/types"
@@ -22,7 +22,7 @@ export function PasswordResetDialog({ user, onClose }: { user: UserAccount; onCl
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Redefinir senha</DialogTitle>
           <DialogDescription>
@@ -30,14 +30,16 @@ export function PasswordResetDialog({ user, onClose }: { user: UserAccount; onCl
           </DialogDescription>
         </DialogHeader>
 
-        <form id="password-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => reset.mutate(values, { onSuccess: onClose }))}>
-          <FormField id="reset-password" label="Nova senha" required hint="Mínimo de 8 caracteres." error={errors.password?.message}>
-            <Input id="reset-password" type="password" autoComplete="new-password" {...form.register("password")} aria-invalid={!!errors.password} />
-          </FormField>
-          <FormField id="reset-confirm" label="Confirmar a nova senha" required error={errors.confirm?.message}>
-            <Input id="reset-confirm" type="password" autoComplete="new-password" {...form.register("confirm")} aria-invalid={!!errors.confirm} />
-          </FormField>
-        </form>
+        <DialogBody>
+          <form id="password-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => reset.mutate(values, { onSuccess: onClose }))}>
+            <FormField id="reset-password" label="Nova senha" required hint="Mínimo de 8 caracteres." error={errors.password?.message}>
+              <Input id="reset-password" type="password" autoComplete="new-password" {...form.register("password")} aria-invalid={!!errors.password} />
+            </FormField>
+            <FormField id="reset-confirm" label="Confirmar a nova senha" required error={errors.confirm?.message}>
+              <Input id="reset-confirm" type="password" autoComplete="new-password" {...form.register("confirm")} aria-invalid={!!errors.confirm} />
+            </FormField>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

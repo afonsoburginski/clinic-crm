@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { roomSchema, type RoomInput } from "@/domain/schemas"
@@ -97,41 +97,45 @@ function RoomDialog({ room, onClose }: { room?: Room; onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{room ? "Editar sala" : "Nova sala"}</DialogTitle>
           <DialogDescription>Salas inativas deixam de aparecer na agenda.</DialogDescription>
         </DialogHeader>
-        <form
-          id="room-form"
-          noValidate
-          className="flex flex-col gap-4"
-          onSubmit={form.handleSubmit((input) => save.mutate({ input, id: room?.id }, { onSuccess: onClose }))}
-        >
-          <div className="grid grid-cols-[1fr_110px] gap-4">
-            <FormField id="room-name" label="Nome" required error={errors.name?.message}>
-              <Input id="room-name" {...form.register("name")} />
+
+        <DialogBody>
+          <form
+            id="room-form"
+            noValidate
+            className="flex flex-col gap-4"
+            onSubmit={form.handleSubmit((input) => save.mutate({ input, id: room?.id }, { onSuccess: onClose }))}
+          >
+            <div className="grid grid-cols-[1fr_110px] gap-4">
+              <FormField id="room-name" label="Nome" required error={errors.name?.message}>
+                <Input id="room-name" {...form.register("name")} />
+              </FormField>
+              <FormField id="room-cap" label="Capacidade" error={errors.capacity?.message}>
+                <Input id="room-cap" type="number" min={1} {...form.register("capacity", { valueAsNumber: true })} />
+              </FormField>
+            </div>
+            <FormField id="room-notes" label="Observações" hint="Ex.: tatame, espelho, material sensorial.">
+              <Textarea id="room-notes" rows={2} {...form.register("notes")} />
             </FormField>
-            <FormField id="room-cap" label="Capacidade" error={errors.capacity?.message}>
-              <Input id="room-cap" type="number" min={1} {...form.register("capacity", { valueAsNumber: true })} />
-            </FormField>
-          </div>
-          <FormField id="room-notes" label="Observações" hint="Ex.: tatame, espelho, material sensorial.">
-            <Textarea id="room-notes" rows={2} {...form.register("notes")} />
-          </FormField>
-          <Controller
-            control={form.control}
-            name="exclusive"
-            render={({ field }) => (
-              <SwitchField id="room-excl" label="Uso exclusivo" description="Impede dois atendimentos simultâneos." checked={field.value} onCheckedChange={field.onChange} />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="active"
-            render={({ field }) => <SwitchField id="room-active" label="Ativa" checked={field.value} onCheckedChange={field.onChange} />}
-          />
-        </form>
+            <Controller
+              control={form.control}
+              name="exclusive"
+              render={({ field }) => (
+                <SwitchField id="room-excl" label="Uso exclusivo" description="Impede dois atendimentos simultâneos." checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="active"
+              render={({ field }) => <SwitchField id="room-active" label="Ativa" checked={field.value} onCheckedChange={field.onChange} />}
+            />
+          </form>
+        </DialogBody>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar

@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { serviceSchema, specialtySchema, type ServiceInput, type SpecialtyInput } from "@/domain/schemas"
@@ -151,56 +151,60 @@ function ServiceDialog({ service, specialties, onClose }: { service?: Service; s
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{service ? "Editar serviço" : "Novo serviço"}</DialogTitle>
           <DialogDescription>A duração padrão define o término ao agendar.</DialogDescription>
         </DialogHeader>
-        <form
-          id="service-form"
-          noValidate
-          className="flex flex-col gap-4"
-          onSubmit={form.handleSubmit((input) => save.mutate({ input, id: service?.id }, { onSuccess: onClose }))}
-        >
-          <FormField id="svc-name" label="Nome" required error={errors.name?.message}>
-            <Input id="svc-name" {...form.register("name")} />
-          </FormField>
-          <FormField id="svc-specialty" label="Especialidade" required error={errors.specialtyId?.message}>
+
+        <DialogBody>
+          <form
+            id="service-form"
+            noValidate
+            className="flex flex-col gap-4"
+            onSubmit={form.handleSubmit((input) => save.mutate({ input, id: service?.id }, { onSuccess: onClose }))}
+          >
+            <FormField id="svc-name" label="Nome" required error={errors.name?.message}>
+              <Input id="svc-name" {...form.register("name")} />
+            </FormField>
+            <FormField id="svc-specialty" label="Especialidade" required error={errors.specialtyId?.message}>
+              <Controller
+                control={form.control}
+                name="specialtyId"
+                render={({ field }) => (
+                  <SimpleSelect
+                    id="svc-specialty"
+                    value={field.value}
+                    onChange={field.onChange}
+                    invalid={!!errors.specialtyId}
+                    options={specialties.filter((s) => s.active || s.id === field.value).map((s) => ({ value: s.id, label: s.name }))}
+                  />
+                )}
+              />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField id="svc-duration" label="Duração (min)" required error={errors.durationMin?.message}>
+                <Input id="svc-duration" type="number" min={10} step={5} {...form.register("durationMin", { valueAsNumber: true })} />
+              </FormField>
+              <FormField id="svc-price" label="Valor (R$)" error={errors.referencePrice?.message}>
+                <Input id="svc-price" type="number" min={0} step={0.01} {...form.register("referencePrice", { valueAsNumber: true })} />
+              </FormField>
+            </div>
             <Controller
               control={form.control}
-              name="specialtyId"
+              name="requiresRoom"
               render={({ field }) => (
-                <SimpleSelect
-                  id="svc-specialty"
-                  value={field.value}
-                  onChange={field.onChange}
-                  invalid={!!errors.specialtyId}
-                  options={specialties.filter((s) => s.active || s.id === field.value).map((s) => ({ value: s.id, label: s.name }))}
-                />
+                <SwitchField id="svc-room" label="Exige sala" description="O agendamento só é salvo com sala definida." checked={field.value} onCheckedChange={field.onChange} />
               )}
             />
-          </FormField>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField id="svc-duration" label="Duração (min)" required error={errors.durationMin?.message}>
-              <Input id="svc-duration" type="number" min={10} step={5} {...form.register("durationMin", { valueAsNumber: true })} />
-            </FormField>
-            <FormField id="svc-price" label="Valor (R$)" error={errors.referencePrice?.message}>
-              <Input id="svc-price" type="number" min={0} step={0.01} {...form.register("referencePrice", { valueAsNumber: true })} />
-            </FormField>
-          </div>
-          <Controller
-            control={form.control}
-            name="requiresRoom"
-            render={({ field }) => (
-              <SwitchField id="svc-room" label="Exige sala" description="O agendamento só é salvo com sala definida." checked={field.value} onCheckedChange={field.onChange} />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="active"
-            render={({ field }) => <SwitchField id="svc-active" label="Ativo" checked={field.value} onCheckedChange={field.onChange} />}
-          />
-        </form>
+            <Controller
+              control={form.control}
+              name="active"
+              render={({ field }) => <SwitchField id="svc-active" label="Ativo" checked={field.value} onCheckedChange={field.onChange} />}
+            />
+          </form>
+        </DialogBody>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar
@@ -224,29 +228,33 @@ function SpecialtyDialog({ specialty, onClose }: { specialty?: Specialty; onClos
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{specialty ? "Editar especialidade" : "Nova especialidade"}</DialogTitle>
           <DialogDescription>Ex.: Psicologia, Fonoaudiologia, Terapia ocupacional.</DialogDescription>
         </DialogHeader>
-        <form
-          id="specialty-form"
-          noValidate
-          className="flex flex-col gap-4"
-          onSubmit={form.handleSubmit((input) => save.mutate({ input, id: specialty?.id }, { onSuccess: onClose }))}
-        >
-          <FormField id="spc-name" label="Nome" required error={errors.name?.message}>
-            <Input id="spc-name" {...form.register("name")} />
-          </FormField>
-          <FormField id="spc-desc" label="Descrição">
-            <Input id="spc-desc" {...form.register("description")} />
-          </FormField>
-          <Controller
-            control={form.control}
-            name="active"
-            render={({ field }) => <SwitchField id="spc-active" label="Ativa" checked={field.value} onCheckedChange={field.onChange} />}
-          />
-        </form>
+
+        <DialogBody>
+          <form
+            id="specialty-form"
+            noValidate
+            className="flex flex-col gap-4"
+            onSubmit={form.handleSubmit((input) => save.mutate({ input, id: specialty?.id }, { onSuccess: onClose }))}
+          >
+            <FormField id="spc-name" label="Nome" required error={errors.name?.message}>
+              <Input id="spc-name" {...form.register("name")} />
+            </FormField>
+            <FormField id="spc-desc" label="Descrição">
+              <Input id="spc-desc" {...form.register("description")} />
+            </FormField>
+            <Controller
+              control={form.control}
+              name="active"
+              render={({ field }) => <SwitchField id="spc-active" label="Ativa" checked={field.value} onCheckedChange={field.onChange} />}
+            />
+          </form>
+        </DialogBody>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar

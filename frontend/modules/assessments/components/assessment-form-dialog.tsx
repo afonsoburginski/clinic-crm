@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { assessmentFormSchema, stagesFromText, type AssessmentFormInput } from "@/domain/schemas"
@@ -37,7 +37,7 @@ export function AssessmentFormDialog({ onClose, onCreated }: { onClose: () => vo
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Nova avaliação</DialogTitle>
           <DialogDescription>
@@ -45,58 +45,60 @@ export function AssessmentFormDialog({ onClose, onCreated }: { onClose: () => vo
           </DialogDescription>
         </DialogHeader>
 
-        <form id="assessment-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <FormField id="assessment-patient" label="Paciente" required error={errors.patientId?.message}>
-            <Controller
-              control={form.control}
-              name="patientId"
-              render={({ field }) => (
-                <SimpleSelect
-                  id="assessment-patient"
-                  value={field.value}
-                  onChange={field.onChange}
-                  invalid={!!errors.patientId}
-                  options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
-                  placeholder={patients.length ? "Selecione" : "Nenhum paciente disponível"}
-                />
-              )}
-            />
-          </FormField>
+        <DialogBody>
+          <form id="assessment-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
+            <FormField id="assessment-patient" label="Paciente" required error={errors.patientId?.message}>
+              <Controller
+                control={form.control}
+                name="patientId"
+                render={({ field }) => (
+                  <SimpleSelect
+                    id="assessment-patient"
+                    value={field.value}
+                    onChange={field.onChange}
+                    invalid={!!errors.patientId}
+                    options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
+                    placeholder={patients.length ? "Selecione" : "Nenhum paciente disponível"}
+                  />
+                )}
+              />
+            </FormField>
 
-          <FormField id="assessment-title" label="Título" required error={errors.title?.message}>
-            <Input id="assessment-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
-          </FormField>
+            <FormField id="assessment-title" label="Título" required error={errors.title?.message}>
+              <Input id="assessment-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
+            </FormField>
 
-          <FormField id="assessment-purpose" label="Finalidade" required error={errors.purpose?.message}>
-            <Textarea id="assessment-purpose" rows={3} aria-invalid={!!errors.purpose || undefined} {...form.register("purpose")} />
-          </FormField>
+            <FormField id="assessment-purpose" label="Finalidade" required error={errors.purpose?.message}>
+              <Textarea id="assessment-purpose" rows={3} aria-invalid={!!errors.purpose || undefined} {...form.register("purpose")} />
+            </FormField>
 
-          <FormField id="assessment-responsible" label="Profissional responsável" required error={errors.responsibleProfessionalId?.message} hint="Só o responsável conclui ou cancela a avaliação.">
-            <Controller
-              control={form.control}
-              name="responsibleProfessionalId"
-              render={({ field }) => (
-                <SimpleSelect
-                  id="assessment-responsible"
-                  value={field.value}
-                  onChange={field.onChange}
-                  invalid={!!errors.responsibleProfessionalId}
-                  options={professionals.filter((p) => p.active).map((p) => ({ value: p.id, label: p.name }))}
-                />
-              )}
-            />
-          </FormField>
+            <FormField id="assessment-responsible" label="Profissional responsável" required error={errors.responsibleProfessionalId?.message} hint="Só o responsável conclui ou cancela a avaliação.">
+              <Controller
+                control={form.control}
+                name="responsibleProfessionalId"
+                render={({ field }) => (
+                  <SimpleSelect
+                    id="assessment-responsible"
+                    value={field.value}
+                    onChange={field.onChange}
+                    invalid={!!errors.responsibleProfessionalId}
+                    options={professionals.filter((p) => p.active).map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                )}
+              />
+            </FormField>
 
-          <FormField id="assessment-stages" label="Etapas" required error={errors.stagesText?.message} hint="Uma etapa por linha, na ordem em que acontecem.">
-            <Textarea
-              id="assessment-stages"
-              rows={5}
-              placeholder={"Entrevista inicial\nAplicação de instrumentos\nDevolutiva"}
-              aria-invalid={!!errors.stagesText || undefined}
-              {...form.register("stagesText")}
-            />
-          </FormField>
-        </form>
+            <FormField id="assessment-stages" label="Etapas" required error={errors.stagesText?.message} hint="Uma etapa por linha, na ordem em que acontecem.">
+              <Textarea
+                id="assessment-stages"
+                rows={5}
+                placeholder={"Entrevista inicial\nAplicação de instrumentos\nDevolutiva"}
+                aria-invalid={!!errors.stagesText || undefined}
+                {...form.register("stagesText")}
+              />
+            </FormField>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose}>

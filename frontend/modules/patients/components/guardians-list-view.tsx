@@ -7,7 +7,7 @@ import { useDeferredValue, useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { guardianSchema, type GuardianInput } from "@/domain/schemas"
 import type { Guardian } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
@@ -101,17 +101,21 @@ function GuardianEditDialog({ guardian, onClose }: { guardian: Guardian; onClose
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Editar responsável</DialogTitle>
         </DialogHeader>
-        <form
-          id="guardian-edit-form"
-          noValidate
-          onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}
-        >
-          <GuardianFields form={form} />
-        </form>
+
+        <DialogBody>
+          <form
+            id="guardian-edit-form"
+            noValidate
+            onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}
+          >
+            <GuardianFields form={form} />
+          </form>
+        </DialogBody>
+
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar

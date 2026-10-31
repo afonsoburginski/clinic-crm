@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { CLASSIFICATION_LABELS, documentAccess } from "@/domain/documents"
@@ -45,7 +45,7 @@ export function DocumentFormDialog({ document, onClose }: { document?: PatientDo
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{document ? "Editar documento" : "Novo documento"}</DialogTitle>
           <DialogDescription>
@@ -53,85 +53,87 @@ export function DocumentFormDialog({ document, onClose }: { document?: PatientDo
           </DialogDescription>
         </DialogHeader>
 
-        <form id="document-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((v) => save.mutate(v, { onSuccess: onClose }))}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="doc-patient" label="Paciente" required error={errors.patientId?.message}>
-              <Controller
-                control={form.control}
-                name="patientId"
-                render={({ field }) => (
-                  <SimpleSelect
-                    id="doc-patient"
-                    value={field.value}
-                    onChange={(v) => {
-                      field.onChange(v)
-                      form.setValue("clinicalRecordId", "")
-                    }}
-                    disabled={!!document}
-                    invalid={!!errors.patientId}
-                    options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
-                    placeholder={patients.length ? "Selecione" : "Nenhum paciente disponível"}
-                  />
-                )}
-              />
-            </FormField>
-            <FormField id="doc-classification" label="Classificação" required>
-              <Controller
-                control={form.control}
-                name="classification"
-                render={({ field }) => (
-                  <SimpleSelect
-                    id="doc-classification"
-                    value={field.value}
-                    onChange={(v) => {
-                      field.onChange(v)
-                      form.setValue("clinicalRecordId", "")
-                    }}
-                    disabled={!!document}
-                    options={(document ? CLASSES : writable).map((value) => ({ value, label: CLASSIFICATION_LABELS[value] }))}
-                  />
-                )}
-              />
-            </FormField>
-          </div>
+        <DialogBody>
+          <form id="document-form" noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((v) => save.mutate(v, { onSuccess: onClose }))}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField id="doc-patient" label="Paciente" required error={errors.patientId?.message}>
+                <Controller
+                  control={form.control}
+                  name="patientId"
+                  render={({ field }) => (
+                    <SimpleSelect
+                      id="doc-patient"
+                      value={field.value}
+                      onChange={(v) => {
+                        field.onChange(v)
+                        form.setValue("clinicalRecordId", "")
+                      }}
+                      disabled={!!document}
+                      invalid={!!errors.patientId}
+                      options={patients.map((p) => ({ value: p.id, label: `${p.socialName || p.fullName} · ${p.code}` }))}
+                      placeholder={patients.length ? "Selecione" : "Nenhum paciente disponível"}
+                    />
+                  )}
+                />
+              </FormField>
+              <FormField id="doc-classification" label="Classificação" required>
+                <Controller
+                  control={form.control}
+                  name="classification"
+                  render={({ field }) => (
+                    <SimpleSelect
+                      id="doc-classification"
+                      value={field.value}
+                      onChange={(v) => {
+                        field.onChange(v)
+                        form.setValue("clinicalRecordId", "")
+                      }}
+                      disabled={!!document}
+                      options={(document ? CLASSES : writable).map((value) => ({ value, label: CLASSIFICATION_LABELS[value] }))}
+                    />
+                  )}
+                />
+              </FormField>
+            </div>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
-            <FormField id="doc-title" label="Título" required error={errors.title?.message}>
-              <Input id="doc-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
-            </FormField>
-            <FormField id="doc-type" label="Tipo" required error={errors.type?.message}>
-              <Input id="doc-type" placeholder="Laudo, termo, recibo…" aria-invalid={!!errors.type || undefined} {...form.register("type")} />
-            </FormField>
-          </div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+              <FormField id="doc-title" label="Título" required error={errors.title?.message}>
+                <Input id="doc-title" aria-invalid={!!errors.title || undefined} {...form.register("title")} />
+              </FormField>
+              <FormField id="doc-type" label="Tipo" required error={errors.type?.message}>
+                <Input id="doc-type" placeholder="Laudo, termo, recibo…" aria-invalid={!!errors.type || undefined} {...form.register("type")} />
+              </FormField>
+            </div>
 
-          {classification === "clinical" && (
-            <FormField
-              id="doc-record"
-              label="Documento clínico do prontuário"
-              required
-              hint="O conteúdo clínico permanece no prontuário; aqui fica só a referência."
-            >
-              <Controller
-                control={form.control}
-                name="clinicalRecordId"
-                render={({ field }) => (
-                  <SimpleSelect
-                    id="doc-record"
-                    value={field.value}
-                    onChange={field.onChange}
-                    disabled={!!document || !patientId}
-                    options={roots.map((r) => ({ value: r.id, label: r.title }))}
-                    placeholder={!patientId ? "Selecione o paciente" : roots.length ? "Selecione" : "Nenhum documento clínico no prontuário"}
-                  />
-                )}
-              />
-            </FormField>
-          )}
+            {classification === "clinical" && (
+              <FormField
+                id="doc-record"
+                label="Documento clínico do prontuário"
+                required
+                hint="O conteúdo clínico permanece no prontuário; aqui fica só a referência."
+              >
+                <Controller
+                  control={form.control}
+                  name="clinicalRecordId"
+                  render={({ field }) => (
+                    <SimpleSelect
+                      id="doc-record"
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={!!document || !patientId}
+                      options={roots.map((r) => ({ value: r.id, label: r.title }))}
+                      placeholder={!patientId ? "Selecione o paciente" : roots.length ? "Selecione" : "Nenhum documento clínico no prontuário"}
+                    />
+                  )}
+                />
+              </FormField>
+            )}
 
-          <FormField id="doc-notes" label="Observações administrativas" error={errors.notes?.message} hint="Não inclua conteúdo clínico aqui.">
-            <Textarea id="doc-notes" rows={3} {...form.register("notes")} />
-          </FormField>
-        </form>
+            <FormField id="doc-notes" label="Observações administrativas" error={errors.notes?.message} hint="Não inclua conteúdo clínico aqui.">
+              <Textarea id="doc-notes" rows={3} {...form.register("notes")} />
+            </FormField>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" type="button" onClick={onClose}>

@@ -5,6 +5,8 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { SHEET_MAX_HEIGHT, SHEET_WIDTHS, type SheetSize } from "@/components/ui/dialog-sizes"
+import { LAYERS } from "@/components/ui/layers"
 import { cn } from "@/lib/utils"
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
@@ -28,7 +30,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "glass-scrim fixed inset-0 z-50 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        `glass-scrim fixed inset-0 ${LAYERS.dialog} transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0`,
         className
       )}
       {...props}
@@ -37,17 +39,20 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
 }
 
 /**
- * Painel lateral (ou de borda) com a mesma estrutura dos dialogs: header e footer fixos,
- * corpo rolável (`SheetBody`) e padding em `--dialog-pad`. Fecha com Esc, clique fora e botão.
+ * Painel lateral (ou de borda) com a mesma estrutura dos dialogs: header e footer fixos (`shrink-0`),
+ * corpo rolável (`SheetBody`) e padding em `--dialog-pad`. Largura por `size` (`dialog-sizes.ts`, sempre
+ * `min(92vw, X)`), altura de painéis de borda limitada a 90 dvh. Fecha com Esc, clique fora e botão.
  */
 function SheetContent({
   className,
   children,
   side = "right",
+  size = "md",
   showCloseButton = true,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
+  size?: SheetSize
   showCloseButton?: boolean
 }) {
   return (
@@ -57,12 +62,14 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "glass-modal fixed z-50 flex flex-col text-sm text-popover-foreground outline-none",
+          `glass-modal fixed ${LAYERS.dialog} flex flex-col text-sm text-popover-foreground outline-none`,
+          SHEET_MAX_HEIGHT,
+          SHEET_WIDTHS[size],
           "transition-[opacity,translate] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:opacity-0",
-          "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:max-h-[calc(100dvh-2rem)] data-[side=bottom]:rounded-t-2xl data-[side=bottom]:data-ending-style:translate-y-8 data-[side=bottom]:data-starting-style:translate-y-8",
-          "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:max-h-[calc(100dvh-2rem)] data-[side=top]:rounded-b-2xl data-[side=top]:data-ending-style:-translate-y-8 data-[side=top]:data-starting-style:-translate-y-8",
-          "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-dvh data-[side=left]:w-[min(calc(100%-2.5rem),24rem)] data-[side=left]:rounded-r-2xl data-[side=left]:data-ending-style:-translate-x-8 data-[side=left]:data-starting-style:-translate-x-8",
-          "data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-dvh data-[side=right]:w-[min(calc(100%-2.5rem),28rem)] data-[side=right]:rounded-l-2xl data-[side=right]:data-ending-style:translate-x-8 data-[side=right]:data-starting-style:translate-x-8",
+          "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:rounded-t-2xl data-[side=bottom]:data-ending-style:translate-y-8 data-[side=bottom]:data-starting-style:translate-y-8",
+          "data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:rounded-b-2xl data-[side=top]:data-ending-style:-translate-y-8 data-[side=top]:data-starting-style:-translate-y-8",
+          "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-dvh data-[side=left]:rounded-r-2xl data-[side=left]:data-ending-style:-translate-x-8 data-[side=left]:data-starting-style:-translate-x-8",
+          "data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-dvh data-[side=right]:rounded-l-2xl data-[side=right]:data-ending-style:translate-x-8 data-[side=right]:data-starting-style:translate-x-8",
           className
         )}
         {...props}

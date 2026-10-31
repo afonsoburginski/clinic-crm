@@ -4,6 +4,8 @@ import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
 
 import { Button } from "@/components/ui/button"
+import { ALERT_DIALOG_MAX_HEIGHT, ALERT_DIALOG_SIZES } from "@/components/ui/dialog-sizes"
+import { LAYERS } from "@/components/ui/layers"
 import { cn } from "@/lib/utils"
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
@@ -30,7 +32,7 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
       className={cn(
-        "glass-scrim fixed inset-0 isolate z-50 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        `glass-scrim fixed inset-0 isolate ${LAYERS.dialog} transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0`,
         className
       )}
       {...props}
@@ -39,8 +41,8 @@ function AlertDialogOverlay({
 }
 
 /**
- * Alertdialog é sempre centrado (decisão que interrompe o fluxo) e curto: sem rolagem de corpo,
- * sem faixa de rodapé. Ações destrutivas usam `AlertDialogMedia` com tom de perigo.
+ * Alertdialog é sempre centrado (decisão que interrompe o fluxo) e curto: sem faixa de rodapé; se o
+ * conteúdo passar de 90 dvh o popup rola. Largura `min(92vw, 480px)` (a variante `sm` dos dialogs). Ações destrutivas usam `AlertDialogMedia` com tom de perigo.
  */
 function AlertDialogContent({
   className,
@@ -56,8 +58,8 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "glass-modal group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-2xl p-(--dialog-pad) text-sm text-popover-foreground outline-none",
-          "data-[size=default]:max-w-sm data-[size=default]:sm:max-w-md data-[size=sm]:max-w-xs",
+          `glass-modal group/alert-dialog-content fixed top-1/2 left-1/2 ${LAYERS.dialog} grid ${ALERT_DIALOG_MAX_HEIGHT} -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-2xl p-(--dialog-pad) text-sm text-popover-foreground outline-none`,
+          ALERT_DIALOG_SIZES[size],
           "transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-ending-style:duration-150",
           className
         )}

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
+import { LAYERS } from "@/components/ui/layers"
 import { cn } from "@/lib/utils"
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
@@ -59,7 +60,7 @@ function CommandDialog({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            "glass-modal fixed top-[12dvh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-2xl text-sm text-popover-foreground outline-none",
+            `glass-modal fixed top-[12dvh] left-1/2 ${LAYERS.dialog} w-[min(92vw,32rem)] max-h-[76dvh] -translate-x-1/2 overflow-hidden rounded-2xl text-sm text-popover-foreground outline-none`,
             "transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-[0.98] data-starting-style:opacity-0",
             className
           )}

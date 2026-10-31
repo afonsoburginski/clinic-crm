@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ROLE_LABELS } from "@/domain/permissions"
 import { userCreateSchema, userUpdateSchema, type UserCreateInput } from "@/domain/schemas"
@@ -60,7 +60,7 @@ export function UserFormDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{user ? "Editar usuário" : "Novo usuário"}</DialogTitle>
           <DialogDescription>
@@ -68,107 +68,109 @@ export function UserFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form id="user-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <FormField id="user-name" label="Nome completo" required error={errors.name?.message}>
-            <Input id="user-name" autoComplete="off" {...form.register("name")} aria-invalid={!!errors.name} />
-          </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="user-email" label="E-mail de acesso" required error={errors.email?.message}>
-              <Input id="user-email" type="email" autoComplete="off" {...form.register("email")} aria-invalid={!!errors.email} />
+        <DialogBody>
+          <form id="user-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
+            <FormField id="user-name" label="Nome completo" required error={errors.name?.message}>
+              <Input id="user-name" autoComplete="off" {...form.register("name")} aria-invalid={!!errors.name} />
             </FormField>
-            {!user && (
-              <FormField id="user-password" label="Senha inicial" required hint="Mínimo de 8 caracteres." error={errors.password?.message}>
-                <Input
-                  id="user-password"
-                  type="password"
-                  autoComplete="new-password"
-                  {...form.register("password")}
-                  aria-invalid={!!errors.password}
-                />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField id="user-email" label="E-mail de acesso" required error={errors.email?.message}>
+                <Input id="user-email" type="email" autoComplete="off" {...form.register("email")} aria-invalid={!!errors.email} />
               </FormField>
-            )}
-          </div>
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1.5 text-sm font-medium">
-              Papéis <span className="text-destructive" aria-hidden>*</span>
-            </legend>
-            <Controller
-              control={form.control}
-              name="roles"
-              render={({ field }) => (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {roleOptions(roles).map((role) => {
-                    const checked = field.value.includes(role.key)
-                    return (
-                      <label
-                        key={role.key}
-                        className="flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm has-[[data-checked]]:border-primary/50 has-[[data-checked]]:bg-primary/5"
-                      >
-                        <Checkbox
-                          className="mt-0.5"
-                          checked={checked}
-                          onCheckedChange={(next) =>
-                            field.onChange(next ? [...field.value, role.key] : field.value.filter((x) => x !== role.key))
-                          }
-                        />
-                        <span className="flex flex-col gap-0.5">
-                          <span className="font-medium">{role.label}</span>
-                          {role.description && <span className="text-xs leading-relaxed text-muted-foreground">{role.description}</span>}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
+              {!user && (
+                <FormField id="user-password" label="Senha inicial" required hint="Mínimo de 8 caracteres." error={errors.password?.message}>
+                  <Input
+                    id="user-password"
+                    type="password"
+                    autoComplete="new-password"
+                    {...form.register("password")}
+                    aria-invalid={!!errors.password}
+                  />
+                </FormField>
               )}
-            />
-            {errors.roles && (
-              <p role="alert" className="text-xs text-destructive">
-                {errors.roles.message}
-              </p>
-            )}
-          </fieldset>
+            </div>
 
-          <FormField
-            id="user-professional"
-            label="Profissional vinculado"
-            hint={
-              needsProfessional
-                ? "Quem tem o papel Profissional precisa de um cadastro vinculado para ver a própria agenda e os pacientes que atende."
-                : "Opcional. Liga o acesso ao cadastro de profissional (agenda e pacientes próprios)."
-            }
-          >
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1.5 text-sm font-medium">
+                Papéis <span className="text-destructive" aria-hidden>*</span>
+              </legend>
+              <Controller
+                control={form.control}
+                name="roles"
+                render={({ field }) => (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {roleOptions(roles).map((role) => {
+                      const checked = field.value.includes(role.key)
+                      return (
+                        <label
+                          key={role.key}
+                          className="flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm has-[[data-checked]]:border-primary/50 has-[[data-checked]]:bg-primary/5"
+                        >
+                          <Checkbox
+                            className="mt-0.5"
+                            checked={checked}
+                            onCheckedChange={(next) =>
+                              field.onChange(next ? [...field.value, role.key] : field.value.filter((x) => x !== role.key))
+                            }
+                          />
+                          <span className="flex flex-col gap-0.5">
+                            <span className="font-medium">{role.label}</span>
+                            {role.description && <span className="text-xs leading-relaxed text-muted-foreground">{role.description}</span>}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              />
+              {errors.roles && (
+                <p role="alert" className="text-xs text-destructive">
+                  {errors.roles.message}
+                </p>
+              )}
+            </fieldset>
+
+            <FormField
+              id="user-professional"
+              label="Profissional vinculado"
+              hint={
+                needsProfessional
+                  ? "Quem tem o papel Profissional precisa de um cadastro vinculado para ver a própria agenda e os pacientes que atende."
+                  : "Opcional. Liga o acesso ao cadastro de profissional (agenda e pacientes próprios)."
+              }
+            >
+              <Controller
+                control={form.control}
+                name="professionalId"
+                render={({ field }) => (
+                  <SimpleSelect
+                    id="user-professional"
+                    value={field.value || NO_PROFESSIONAL}
+                    onChange={(value) => field.onChange(value === NO_PROFESSIONAL ? "" : value)}
+                    options={[
+                      { value: NO_PROFESSIONAL, label: "Sem vínculo" },
+                      ...professionals.map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (inativo)` })),
+                    ]}
+                  />
+                )}
+              />
+            </FormField>
+
             <Controller
               control={form.control}
-              name="professionalId"
+              name="active"
               render={({ field }) => (
-                <SimpleSelect
-                  id="user-professional"
-                  value={field.value || NO_PROFESSIONAL}
-                  onChange={(value) => field.onChange(value === NO_PROFESSIONAL ? "" : value)}
-                  options={[
-                    { value: NO_PROFESSIONAL, label: "Sem vínculo" },
-                    ...professionals.map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (inativo)` })),
-                  ]}
+                <SwitchField
+                  id="user-active"
+                  label="Acesso ativo"
+                  description="Desativar encerra as sessões e impede novos acessos; o histórico fica preservado."
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
                 />
               )}
             />
-          </FormField>
-
-          <Controller
-            control={form.control}
-            name="active"
-            render={({ field }) => (
-              <SwitchField
-                id="user-active"
-                label="Acesso ativo"
-                description="Desativar encerra as sessões e impede novos acessos; o histórico fica preservado."
-                checked={field.value}
-                onCheckedChange={field.onChange}
-              />
-            )}
-          />
-        </form>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onClose()}>

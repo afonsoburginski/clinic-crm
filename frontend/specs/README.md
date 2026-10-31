@@ -57,6 +57,10 @@ app/                   rotas finas: compõem templates + componentes de módulo
 
 Todos os módulos usam **apenas a API real**: não há dado de demonstração, seed nem armazenamento de dados de negócio no navegador. Os adaptadores ficam em `shared/api/` (`api.ts` compõe `clinical-api.ts`, `financial-api.ts` e `documents-api.ts`; utilitários comuns em `helpers.ts`).
 
+## UI compartilhada
+
+Convenção de dialogs, alertdialogs e sheets (tamanhos, anatomia Header/Body/Footer e escala de z-index): [`ui/dialogs.md`](ui/dialogs.md).
+
 ## Fora do escopo desta entrega
 
 Fase 6 (hardening e produção) e portal SvelteKit.

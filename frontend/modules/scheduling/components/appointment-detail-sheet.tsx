@@ -29,7 +29,7 @@ export function AppointmentDetailSheet({
 }) {
   return (
     <Sheet open={!!appointment} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent size="md">
         {appointment && <Detail appointment={appointment} onClose={() => onOpenChange(false)} onReschedule={onReschedule} />}
       </SheetContent>
     </Sheet>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ChoiceGroup, FeatureCarousel, Onboarding, TipsList, useOnboarding } from "@/components/ui/onboarding"
 import { ROLE_LABELS } from "@/domain/permissions"
 import type { User } from "@/domain/types"
@@ -51,7 +51,7 @@ export function OnboardingTour({ user }: { user: User }) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && dismiss()}>
-      <DialogContent size="xl">
+      <DialogContent size="md">
         <TourBody user={user} onComplete={complete} onSkip={dismiss} />
       </DialogContent>
     </Dialog>
@@ -68,55 +68,57 @@ function TourBody({ user, onComplete, onSkip }: { user: User; onComplete: (desti
       totalSteps={TOTAL_STEPS}
       maxStepValue={Math.max(features.length - 1, 0)}
       onComplete={() => onComplete(features.find((feature) => feature.id === startId))}
-      className="gap-5 rounded-none border-0 bg-transparent p-0 shadow-none"
+      className="min-h-0 flex-1 gap-0 rounded-none border-0 bg-transparent p-0 shadow-none"
     >
       <TourHeader user={user} />
 
-      <Onboarding.Step step={1} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-        <FeatureStep features={features} />
-      </Onboarding.Step>
+      <DialogBody>
+        <Onboarding.Step step={1} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+          <FeatureStep features={features} />
+        </Onboarding.Step>
 
-      <Onboarding.Step step={2} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-        <ChoiceGroup
-          name="Por onde começar"
-          value={startId}
-          onValueChange={setStartId}
-          className="grid gap-2 sm:grid-cols-2"
-        >
-          {features.map((feature) => (
-            <ChoiceGroup.Item
-              key={feature.id}
-              value={feature.id}
-              className="group flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:bg-muted has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 data-[state=selected]:border-primary data-[state=selected]:bg-secondary"
-            >
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground group-data-[state=selected]:bg-primary group-data-[state=selected]:text-primary-foreground">
-                <feature.icon className="size-4" aria-hidden />
-              </span>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-sm font-medium">{feature.title}</span>
-                <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{feature.summary}</span>
-              </span>
-            </ChoiceGroup.Item>
-          ))}
-        </ChoiceGroup>
-      </Onboarding.Step>
+        <Onboarding.Step step={2} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+          <ChoiceGroup
+            name="Por onde começar"
+            value={startId}
+            onValueChange={setStartId}
+            className="grid gap-2 sm:grid-cols-2"
+          >
+            {features.map((feature) => (
+              <ChoiceGroup.Item
+                key={feature.id}
+                value={feature.id}
+                className="group flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:bg-muted has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 data-[state=selected]:border-primary data-[state=selected]:bg-secondary"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground group-data-[state=selected]:bg-primary group-data-[state=selected]:text-primary-foreground">
+                  <feature.icon className="size-4" aria-hidden />
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-medium">{feature.title}</span>
+                  <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{feature.summary}</span>
+                </span>
+              </ChoiceGroup.Item>
+            ))}
+          </ChoiceGroup>
+        </Onboarding.Step>
 
-      <Onboarding.Step step={3} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-        <TipsList
-          title="Dicas rápidas"
-          className="[&_[data-slot=tips-list-items]]:divide-y [&_[data-slot=tips-list-items]]:overflow-hidden [&_[data-slot=tips-list-items]]:rounded-xl [&_[data-slot=tips-list-items]]:border [&_[data-slot=tips-list-items]]:bg-card"
-        >
-          {tips.map((tip, index) => (
-            <TipsList.Item
-              key={tip.id}
-              number={index + 1}
-              className="flex items-start gap-3 px-3.5 py-3 text-sm leading-relaxed [&_[data-slot=tips-list-item-number]]:mt-0.5 [&_[data-slot=tips-list-item-number]]:grid [&_[data-slot=tips-list-item-number]]:size-5 [&_[data-slot=tips-list-item-number]]:shrink-0 [&_[data-slot=tips-list-item-number]]:place-items-center [&_[data-slot=tips-list-item-number]]:rounded-full [&_[data-slot=tips-list-item-number]]:bg-secondary [&_[data-slot=tips-list-item-number]]:text-xs [&_[data-slot=tips-list-item-number]]:font-medium [&_[data-slot=tips-list-item-number]]:text-secondary-foreground"
-            >
-              <span className="text-pretty">{tip.text}</span>
-            </TipsList.Item>
-          ))}
-        </TipsList>
-      </Onboarding.Step>
+        <Onboarding.Step step={3} className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+          <TipsList
+            title="Dicas rápidas"
+            className="[&_[data-slot=tips-list-items]]:divide-y [&_[data-slot=tips-list-items]]:overflow-hidden [&_[data-slot=tips-list-items]]:rounded-xl [&_[data-slot=tips-list-items]]:border [&_[data-slot=tips-list-items]]:bg-card"
+          >
+            {tips.map((tip, index) => (
+              <TipsList.Item
+                key={tip.id}
+                number={index + 1}
+                className="flex items-start gap-3 px-3.5 py-3 text-sm leading-relaxed [&_[data-slot=tips-list-item-number]]:mt-0.5 [&_[data-slot=tips-list-item-number]]:grid [&_[data-slot=tips-list-item-number]]:size-5 [&_[data-slot=tips-list-item-number]]:shrink-0 [&_[data-slot=tips-list-item-number]]:place-items-center [&_[data-slot=tips-list-item-number]]:rounded-full [&_[data-slot=tips-list-item-number]]:bg-secondary [&_[data-slot=tips-list-item-number]]:text-xs [&_[data-slot=tips-list-item-number]]:font-medium [&_[data-slot=tips-list-item-number]]:text-secondary-foreground"
+              >
+                <span className="text-pretty">{tip.text}</span>
+              </TipsList.Item>
+            ))}
+          </TipsList>
+        </Onboarding.Step>
+      </DialogBody>
 
       <TourFooter hasChoice={startId !== null} onSkip={onSkip} />
     </Onboarding>

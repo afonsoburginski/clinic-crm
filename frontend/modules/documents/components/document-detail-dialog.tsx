@@ -4,7 +4,7 @@ import { PencilLine } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { activeReleases } from "@/domain/documents"
 import type { DocumentRelease, PatientDocument } from "@/domain/types"
 import { formatDateTime } from "@/shared/lib/format"
@@ -22,7 +22,7 @@ export function DocumentDetailDialog({ documentId, onClose, onEdit }: { document
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="2xl">
+      <DialogContent size="lg">
         {error ? (
           <DialogErrorState title="Documento" error={error} />
         ) : !data ? (
@@ -41,51 +41,54 @@ export function DocumentDetailDialog({ documentId, onClose, onEdit }: { document
               </DialogDescription>
             </DialogHeader>
 
-            {data.doc.classification === "clinical" && (
-              <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                Documento clínico: o conteúdo fica no prontuário do paciente. Este registro guarda só a classificação, o estado e as liberações.
-              </p>
-            )}
-            {data.doc.notes && <p className="text-sm leading-relaxed text-pretty whitespace-pre-line">{data.doc.notes}</p>}
+            <DialogBody>
+              {data.doc.classification === "clinical" && (
+                <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  Documento clínico: o conteúdo fica no prontuário do paciente. Este registro guarda só a classificação, o estado e as liberações.
+                </p>
+              )}
+              {data.doc.notes && <p className="text-sm leading-relaxed text-pretty whitespace-pre-line">{data.doc.notes}</p>}
 
-            {data.canWrite && data.doc.status !== "archived" && (
-              <div className="flex flex-wrap gap-2">
-                {data.doc.status === "draft" && (
-                  <>
-                    <Button variant="outline" onClick={() => onEdit(data.doc)}>
-                      <PencilLine aria-hidden />
-                      Editar rascunho
-                    </Button>
-                    <Button onClick={() => setConfirm("issue")}>Emitir</Button>
-                  </>
-                )}
-                <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setConfirm("archive")}>
-                  Arquivar
-                </Button>
-              </div>
-            )}
+              {data.canWrite && data.doc.status !== "archived" && (
+                <div className="flex flex-wrap gap-2">
+                  {data.doc.status === "draft" && (
+                    <>
+                      <Button variant="outline" onClick={() => onEdit(data.doc)}>
+                        <PencilLine aria-hidden />
+                        Editar rascunho
+                      </Button>
+                      <Button onClick={() => setConfirm("issue")}>Emitir</Button>
+                    </>
+                  )}
+                  <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setConfirm("archive")}>
+                    Arquivar
+                  </Button>
+                </div>
+              )}
 
-            <ReleasesSection doc={data.doc} canWrite={data.canWrite} guardianNames={data.guardianNames} />
+              <ReleasesSection doc={data.doc} canWrite={data.canWrite} guardianNames={data.guardianNames} />
 
-            <ConfirmDialog
-              open={confirm === "issue"}
-              onOpenChange={(open) => !open && setConfirm(null)}
-              title="Emitir documento?"
-              description="Depois de emitido, o documento não pode mais ser editado e poderá ser liberado a responsáveis."
-              confirmLabel="Emitir"
-              pending={setStatus.isPending}
-              onConfirm={() => setStatus.mutate("issued", { onSuccess: () => setConfirm(null) })}
-            />
-            <ConfirmDialog
-              open={confirm === "archive"}
-              onOpenChange={(open) => !open && setConfirm(null)}
-              title="Arquivar documento?"
-              description="Arquivar é definitivo e revoga as liberações ativas. O registro permanece para consulta."
-              confirmLabel="Arquivar"
-              destructive
-              pending={setStatus.isPending}
-              onConfirm={() => setStatus.mutate("archived", { onSuccess: () => setConfirm(null) })}
-            />
+              <ConfirmDialog
+                open={confirm === "issue"}
+                onOpenChange={(open) => !open && setConfirm(null)}
+                title="Emitir documento?"
+                description="Depois de emitido, o documento não pode mais ser editado e poderá ser liberado a responsáveis."
+                confirmLabel="Emitir"
+                pending={setStatus.isPending}
+                onConfirm={() => setStatus.mutate("issued", { onSuccess: () => setConfirm(null) })}
+              />
+              <ConfirmDialog
+                open={confirm === "archive"}
+                onOpenChange={(open) => !open && setConfirm(null)}
+                title="Arquivar documento?"
+                description="Arquivar é definitivo e revoga as liberações ativas. O registro permanece para consulta."
+                confirmLabel="Arquivar"
+                destructive
+                pending={setStatus.isPending}
+                onConfirm={() => setStatus.mutate("archived", { onSuccess: () => setConfirm(null) })}
+              />
+            </DialogBody>
+
           </>
         )}
       </DialogContent>

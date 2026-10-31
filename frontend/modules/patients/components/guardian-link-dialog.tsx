@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
 import { Input } from "@/components/ui/input"
 import { guardianLinkSchema, guardianSchema, type GuardianInput, type GuardianLinkInput } from "@/domain/schemas"
@@ -71,80 +71,82 @@ export function GuardianLinkDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{link ? "Editar vínculo" : "Vincular responsável"}</DialogTitle>
           <DialogDescription>Paciente: {patient.socialName || patient.fullName}</DialogDescription>
         </DialogHeader>
 
-        <form id="guardian-link-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
-          {!link && (
-            <HaloToggleGroup
-              items={[
-                { value: "existing", label: "Responsável existente" },
-                { value: "new", label: "Novo cadastro" },
-              ]}
-              value={mode}
-              onValueChange={(v) => v && setMode(v as Mode)}
-              className="self-start"
-            />
-          )}
+        <DialogBody>
+          <form id="guardian-link-form" onSubmit={submit} noValidate className="flex flex-col gap-4">
+            {!link && (
+              <HaloToggleGroup
+                items={[
+                  { value: "existing", label: "Responsável existente" },
+                  { value: "new", label: "Novo cadastro" },
+                ]}
+                value={mode}
+                onValueChange={(v) => v && setMode(v as Mode)}
+                className="self-start"
+              />
+            )}
 
-          {!link && mode === "new" ? (
-            <GuardianFields form={guardianForm} />
-          ) : (
-            <FormField id="link-guardianId" label="Responsável" required error={errors.guardianId?.message}>
-              <Controller
-                control={linkForm.control}
-                name="guardianId"
-                render={({ field }) => (
-                  <SimpleSelect
-                    id="link-guardianId"
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={options}
-                    disabled={!!link}
-                    invalid={!!errors.guardianId}
-                    placeholder={options.length ? "Selecione" : "Nenhum responsável disponível"}
-                  />
-                )}
+            {!link && mode === "new" ? (
+              <GuardianFields form={guardianForm} />
+            ) : (
+              <FormField id="link-guardianId" label="Responsável" required error={errors.guardianId?.message}>
+                <Controller
+                  control={linkForm.control}
+                  name="guardianId"
+                  render={({ field }) => (
+                    <SimpleSelect
+                      id="link-guardianId"
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={options}
+                      disabled={!!link}
+                      invalid={!!errors.guardianId}
+                      placeholder={options.length ? "Selecione" : "Nenhum responsável disponível"}
+                    />
+                  )}
+                />
+              </FormField>
+            )}
+
+            <FormField id="link-relationship" label="Parentesco" required error={errors.relationship?.message}>
+              <Input
+                id="link-relationship"
+                placeholder="Mãe, pai, avó, tutor…"
+                aria-invalid={!!errors.relationship || undefined}
+                {...linkForm.register("relationship")}
               />
             </FormField>
-          )}
 
-          <FormField id="link-relationship" label="Parentesco" required error={errors.relationship?.message}>
-            <Input
-              id="link-relationship"
-              placeholder="Mãe, pai, avó, tutor…"
-              aria-invalid={!!errors.relationship || undefined}
-              {...linkForm.register("relationship")}
-            />
-          </FormField>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ["isPrimaryContact", "Contato principal"],
+                  ["isLegalGuardian", "Responsável legal"],
+                  ["canSchedule", "Pode agendar"],
+                  ["canReceiveDocuments", "Recebe documentos"],
+                ] as const
+              ).map(([name, label]) => (
+                <Controller
+                  key={name}
+                  control={linkForm.control}
+                  name={name}
+                  render={({ field }) => (
+                    <SwitchField id={`link-${name}`} label={label} checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              ))}
+            </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["isPrimaryContact", "Contato principal"],
-                ["isLegalGuardian", "Responsável legal"],
-                ["canSchedule", "Pode agendar"],
-                ["canReceiveDocuments", "Recebe documentos"],
-              ] as const
-            ).map(([name, label]) => (
-              <Controller
-                key={name}
-                control={linkForm.control}
-                name={name}
-                render={({ field }) => (
-                  <SwitchField id={`link-${name}`} label={label} checked={field.value} onCheckedChange={field.onChange} />
-                )}
-              />
-            ))}
-          </div>
-
-          <FormField id="link-restrictions" label="Restrições" hint="Ex.: não pode retirar o paciente sem autorização.">
-            <Input id="link-restrictions" {...linkForm.register("restrictions")} />
-          </FormField>
-        </form>
+            <FormField id="link-restrictions" label="Restrições" hint="Ex.: não pode retirar o paciente sem autorização.">
+              <Input id="link-restrictions" {...linkForm.register("restrictions")} />
+            </FormField>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} type="button">
