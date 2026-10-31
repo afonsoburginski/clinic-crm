@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button"
 import { PLAN_STATUS_LABELS } from "@/domain/aba"
 import type { AbaPlan, AbaPlanStatus } from "@/domain/types"
 import { formatBirthDate } from "@/shared/lib/format"
+import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -25,11 +27,11 @@ const STATUS_OPTIONS = (Object.keys(PLAN_STATUS_LABELS) as AbaPlanStatus[]).map(
 export function AbaPlansView() {
   const router = useRouter()
   const { patient, professional, professionals } = useLookups()
-  const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<AbaPlan | null>(null)
   const [template, setTemplate] = useState<AbaPlan | null>(null)
   const { activate, close } = usePlanTransitions()
   const { data, isLoading, error, refetch } = useAbaPlans("all")
+  const canWrite = useCan("clinical:write")
+  const editor = useUrlEditor({ items: data, isLoading, allowed: canWrite })
 
   const columns = useMemo<DataTableColumn<AbaPlan>[]>(
     () => [
@@ -110,7 +112,7 @@ export function AbaPlansView() {
         description="Planos com objetivos e critério explícito, sessões e medidas registradas. O progresso vem só das medidas reais."
         actions={
           <PermissionGate permission="clinical:write">
-            <Button onClick={() => setCreating(true)}>
+            <Button onClick={editor.openNew}>
               <Plus aria-hidden />
               Novo plano
             </Button>
@@ -136,7 +138,7 @@ export function AbaPlansView() {
           rowActions={(plan) =>
             abaPlanActions(plan, {
               onView: () => router.push(`/aba/${plan.id}`),
-              onEdit: () => setEditing(plan),
+              onEdit: () => editor.openEdit(plan),
               onDuplicate: () => setTemplate(plan),
               onActivate: () => activate.mutate(plan.id),
               onClose: (reason) => close.mutate({ id: plan.id, input: { reason } }),
@@ -145,9 +147,9 @@ export function AbaPlansView() {
         />
       </SectionCard>
 
-      {creating && <AbaPlanFormDialog onClose={() => setCreating(false)} onCreated={(id) => router.push(`/aba/${id}`)} />}
+      {editor.creating && <AbaPlanFormDialog onClose={editor.close} onCreated={(id) => router.push(`/aba/${id}`)} />}
       {template && <AbaPlanFormDialog template={template} onClose={() => setTemplate(null)} onCreated={(id) => router.push(`/aba/${id}`)} />}
-      {editing && <AbaPlanFormDialog plan={editing} onClose={() => setEditing(null)} />}
+      {editor.editing && <AbaPlanFormDialog key={editor.editing.id} plan={editor.editing} onClose={editor.close} />}
     </>
   )
 }

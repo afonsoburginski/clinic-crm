@@ -12,6 +12,7 @@ import { RolesTab } from "@/modules/users/components/roles-tab"
 import { UsersTab } from "@/modules/users/components/users-tab"
 import { useCan } from "@/shared/lib/current-user"
 import { notifyError } from "@/shared/lib/notify"
+import { useUrlParam } from "@/shared/lib/use-url-dialog"
 import { AccessDenied } from "@/shared/ui/organisms/access-denied"
 import { ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
@@ -30,10 +31,10 @@ type SettingsTab = "clinica" | "usuarios" | "papeis"
 export function SettingsView() {
   const canClinic = useCan("settings:manage")
   const canUsers = useCan("users:read")
-  const [chosen, setTab] = useState<SettingsTab | null>(null)
+  const [chosen, setTab] = useUrlParam("aba")
   const allowed: SettingsTab[] = [...(canClinic ? (["clinica"] as const) : []), ...(canUsers ? (["usuarios", "papeis"] as const) : [])]
   // A permissão chega depois da sessão: a aba escolhida só vale se ainda for permitida, senão abre a primeira.
-  const tab = chosen && allowed.includes(chosen) ? chosen : allowed[0]
+  const tab = allowed.find((candidate) => candidate === chosen) ?? allowed[0]
 
   if (!allowed.length) return <AccessDenied />
 

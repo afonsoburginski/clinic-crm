@@ -11,6 +11,7 @@ Dados na API (`/aba/plans`, `/aba/sessions`), guardados em `api_resources`. Nenh
 - **RF-ABA-003** Registrar sessão com medidas por objetivo (tentativas e acertos).
 - **RF-ABA-004** Ver progresso por objetivo calculado só das medidas registradas.
 - **RF-ABA-005** Histórico de alterações do plano e dos objetivos.
+- **RF-ABA-006** Novo plano (lista: `?novo=1`; abre a ficha do plano criado) e editar plano (lista: `?editar=<id>`; ficha: `?editar=1`) abrem em dialog sobre a tela (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query"). Meta e sessão seguem como dialogs locais da ficha, sem deep-link, com a mesma confirmação de descarte.
 
 ## Regras
 

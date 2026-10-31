@@ -4,15 +4,6 @@ import { AlertTriangle, Sparkles } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,6 +13,7 @@ import type { AppointmentInput } from "@/domain/schemas"
 import type { Appointment } from "@/domain/types"
 import { useLookups } from "@/shared/lib/lookups"
 import { notifyError } from "@/shared/lib/notify"
+import { FormDialog } from "@/shared/ui/molecules/form-dialog"
 import { FormField } from "@/shared/ui/molecules/form-field"
 import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
@@ -97,26 +89,22 @@ export function AppointmentFormDialog({
   appointment?: Appointment
   draft?: AppointmentDraft
 }) {
+  if (!open) return null
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
-        {open && (
-          <AppointmentForm
-            key={appointment?.id ?? `${draft?.date}-${draft?.start}`}
-            appointment={appointment}
-            draft={draft}
-            onDone={() => onOpenChange(false)}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+    <AppointmentForm
+      key={appointment?.id ?? `${draft?.date}-${draft?.start}`}
+      appointment={appointment}
+      draft={draft}
+      onDone={() => onOpenChange(false)}
+    />
   )
 }
 
 function AppointmentForm({ appointment, draft, onDone }: { appointment?: Appointment; draft?: AppointmentDraft; onDone: () => void }) {
   const lookups = useLookups()
   const save = useSaveAppointment(appointment?.id)
-  const [form, setForm] = useState(() => initialState(appointment, draft))
+  const [initial] = useState(() => initialState(appointment, draft))
+  const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
   const [conflict, setConflict] = useState<{ message: string; conflicts: ConflictDetail[]; suggestion?: { start: string; end: string } }>()
 
@@ -197,20 +185,25 @@ function AppointmentForm({ appointment, draft, onDone }: { appointment?: Appoint
   }
 
   return (
-    <form
-      noValidate
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={(event) => {
-        event.preventDefault()
-        submit()
-      }}
+    <FormDialog
+      size="md"
+      title={appointment ? "Reagendar" : "Novo agendamento"}
+      description="Conflitos de profissional, sala e expediente são verificados ao salvar."
+      formId="appointment-form"
+      submitLabel={appointment ? "Salvar alterações" : "Agendar"}
+      pending={save.isPending}
+      isDirty={JSON.stringify(form) !== JSON.stringify(initial)}
+      onClose={onDone}
     >
-      <DialogHeader>
-        <DialogTitle>{appointment ? "Reagendar" : "Novo agendamento"}</DialogTitle>
-        <DialogDescription>Conflitos de profissional, sala e expediente são verificados ao salvar.</DialogDescription>
-      </DialogHeader>
-
-      <DialogBody>
+      <form
+        id="appointment-form"
+        noValidate
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault()
+          submit()
+        }}
+      >
         {!appointment && (
           <HaloToggleGroup
             items={[
@@ -344,16 +337,7 @@ function AppointmentForm({ appointment, draft, onDone }: { appointment?: Appoint
             )}
           </div>
         )}
-      </DialogBody>
-
-      <DialogFooter>
-        <Button type="button" variant="ghost" onClick={onDone}>
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? "Salvando…" : appointment ? "Salvar alterações" : "Agendar"}
-        </Button>
-      </DialogFooter>
-    </form>
+      </form>
+    </FormDialog>
   )
 }

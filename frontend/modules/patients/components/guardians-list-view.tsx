@@ -3,16 +3,17 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { HeartHandshake } from "lucide-react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { guardianSchema, type GuardianInput } from "@/domain/schemas"
 import type { Guardian } from "@/domain/types"
 import type { GuardianWithPatients } from "@/shared/api/api"
+import { useCan } from "@/shared/lib/current-user"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { FormDialog } from "@/shared/ui/molecules/form-dialog"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
@@ -27,7 +28,9 @@ const LINK_OPTIONS = [
 
 export function GuardiansListView() {
   const { data, isLoading, error, refetch, isPlaceholderData } = useGuardians("")
-  const [editing, setEditing] = useState<Guardian | null>(null)
+  const canWrite = useCan("guardians:write")
+  const guardians = useMemo(() => data?.map(({ guardian }) => guardian), [data])
+  const editor = useUrlEditor({ items: guardians, isLoading, allowed: canWrite })
 
   const columns = useMemo<DataTableColumn<GuardianWithPatients>[]>(
     () => [
@@ -102,11 +105,11 @@ export function GuardiansListView() {
           onRetry={() => refetch()}
           noun={["responsável", "responsáveis"]}
           rowLabel={({ guardian }) => guardian.fullName}
-          rowActions={({ guardian }) => guardianActions(guardian, { onEdit: () => setEditing(guardian) })}
+          rowActions={({ guardian }) => guardianActions(guardian, { onEdit: () => editor.openEdit(guardian) })}
           empty={{ icon: <HeartHandshake aria-hidden />, title: "Nenhum responsável cadastrado" }}
         />
       </SectionCard>
-      {editing && <GuardianEditDialog guardian={editing} onClose={() => setEditing(null)} />}
+      {editor.editing && <GuardianEditDialog key={editor.editing.id} guardian={editor.editing} onClose={editor.close} />}
     </>
   )
 }
@@ -124,31 +127,22 @@ function GuardianEditDialog({ guardian, onClose }: { guardian: Guardian; onClose
   })
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="sm">
-        <DialogHeader>
-          <DialogTitle>Editar responsável</DialogTitle>
-        </DialogHeader>
-
-        <DialogBody>
-          <form
-            id="guardian-edit-form"
-            noValidate
-            onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}
-          >
-            <GuardianFields form={form} />
-          </form>
-        </DialogBody>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="guardian-edit-form" disabled={save.isPending}>
-            {save.isPending ? "Salvando…" : "Salvar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      size="sm"
+      title="Editar responsável"
+      formId="guardian-edit-form"
+      submitLabel="Salvar"
+      pending={save.isPending}
+      isDirty={form.formState.isDirty}
+      onClose={onClose}
+    >
+      <form
+        id="guardian-edit-form"
+        noValidate
+        onSubmit={form.handleSubmit((values) => save.mutate(values, { onSuccess: onClose }))}
+      >
+        <GuardianFields form={form} />
+      </form>
+    </FormDialog>
   )
 }

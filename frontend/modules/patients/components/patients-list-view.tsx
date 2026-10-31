@@ -5,11 +5,12 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo } from "react"
 
-import { buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import type { Patient, PatientStatus } from "@/domain/types"
 import { ageInYears, formatAge, formatBirthDate } from "@/shared/lib/format"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
@@ -18,6 +19,7 @@ import { SectionCard } from "@/shared/ui/molecules/section-card"
 
 import { patientActions } from "../lib/patient-actions"
 import { PATIENT_STATUS_LABELS, usePatients, useSetPatientStatus } from "../queries"
+import { PatientFormDialog } from "./patient-form-dialog"
 import { PatientStatusPill } from "./patient-status-pill"
 
 const STATUS_OPTIONS = (Object.keys(PATIENT_STATUS_LABELS) as PatientStatus[]).map((value) => ({ value, label: PATIENT_STATUS_LABELS[value] }))
@@ -29,6 +31,7 @@ export function PatientsListView() {
   const { professionals, professional } = useLookups()
   const { data, isLoading, error, refetch, isPlaceholderData } = usePatients({ status: "all" })
   const setStatus = useSetPatientStatus()
+  const editor = useUrlEditor({ items: data, isLoading, allowed: canWrite })
 
   const columns = useMemo<DataTableColumn<Patient>[]>(
     () => [
@@ -129,10 +132,10 @@ export function PatientsListView() {
         description={canReadAll ? "Cadastro central de pacientes da clínica." : "Pacientes que você atende."}
         actions={
           canWrite && (
-            <Link href="/pacientes/novo" className={buttonVariants()}>
+            <Button onClick={editor.openNew}>
               <UserRoundPlus aria-hidden />
               Novo paciente
-            </Link>
+            </Button>
           )
         }
       />
@@ -157,13 +160,17 @@ export function PatientsListView() {
           rowActions={(p) =>
             patientActions(p, {
               onView: () => router.push(`/pacientes/${p.id}`),
-              onEdit: () => router.push(`/pacientes/${p.id}/editar`),
+              onEdit: () => editor.openEdit(p),
               onSchedule: () => router.push(`/agenda?novo=1&paciente=${p.id}`),
               onSetStatus: (status) => setStatus.mutate({ patient: p, status }),
             })
           }
         />
       </SectionCard>
+
+      {(editor.creating || editor.editing) && (
+        <PatientFormDialog key={editor.editing?.id ?? "novo"} patient={editor.editing} onClose={editor.close} />
+      )}
     </>
   )
 }

@@ -1,11 +1,12 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { Suspense, useEffect, useRef } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { OnboardingTour } from "@/modules/onboarding/components/onboarding-tour"
 import { useCurrentUser } from "@/shared/lib/current-user"
+import { loginUrl } from "@/shared/lib/return-to"
 
 import { AppSidebar } from "../organisms/app-sidebar"
 import { AppTopbar } from "../organisms/app-topbar"
@@ -18,9 +19,15 @@ import { RouteTransition } from "./route-transition"
 export function PanelShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isSignedIn } = useCurrentUser()
   const router = useRouter()
+  const wasSignedIn = useRef(false)
 
   useEffect(() => {
-    if (!isLoading && !isSignedIn) router.replace("/entrar")
+    if (isSignedIn) wasSignedIn.current = true
+    if (isLoading || isSignedIn) return
+    // Abriu a URL já sem sessão (deep-link `?editar=`/`?novo=`, F5 com token vencido): o login devolve ao mesmo endereço.
+    // Sessão que acabou nesta tela (sair, expirar) vai ao login sem destino, para o próximo usuário não herdar a rota.
+    const { pathname, search } = window.location
+    router.replace(wasSignedIn.current ? loginUrl() : loginUrl(`${pathname}${search}`))
   }, [isLoading, isSignedIn, router])
 
   return (
@@ -36,19 +43,21 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         <AppTopbar user={user} />
         <main id="conteudo" tabIndex={-1} className="page-container flex flex-1 flex-col py-(--page-pad-y) outline-none">
           <RouteTransition className="flex flex-1 flex-col gap-(--page-gap)">
-            {user ? (
-              children
-            ) : (
-              <div className="flex flex-col gap-4" aria-busy="true">
-                <Skeleton className="h-8 w-64" />
-                <Skeleton className="h-4 w-96 max-w-full" />
-                <Skeleton className="h-64 w-full rounded-xl" />
-              </div>
-            )}
+            {user ? <Suspense fallback={<PanelSkeleton />}>{children}</Suspense> : <PanelSkeleton />}
           </RouteTransition>
         </main>
       </div>
       {user && <OnboardingTour user={user} />}
+    </div>
+  )
+}
+
+function PanelSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+      <Skeleton className="h-64 w-full rounded-xl" />
     </div>
   )
 }

@@ -12,6 +12,7 @@ Dados na API (`/clinical-records`, `/clinical/patients`, `…/finalize`, `…/re
 - **RF-PRN-004** Retificar registro finalizado: cria nova versão em rascunho, ligada à original, com motivo.
 - **RF-PRN-005** Linha do tempo do paciente com filtro por tipo, histórico de eventos e cadeia de versões.
 - **RF-PRN-006** Lista de prontuários acessíveis: apenas os pacientes do profissional logado.
+- **RF-PRN-007** Novo registro e editar rascunho abrem em dialog sobre o prontuário do paciente, endereçável por `?novo=1` e `?editar=<id do registro>`; retificar abre o rascunho da retificação no mesmo dialog (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query").
 
 ## Regras
 

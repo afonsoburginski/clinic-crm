@@ -3,11 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { TriangleAlert } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useDeferredValue } from "react"
+import { useDeferredValue, useEffect } from "react"
 import { Controller, useForm, useWatch } from "react-hook-form"
 
-import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { patientSchema, type PatientInput } from "@/domain/schemas"
@@ -21,8 +19,27 @@ import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 import { patientToInput } from "../lib/patient-input"
 import { PATIENT_STATUS_LABELS, usePossibleDuplicates, useSavePatient } from "../queries"
 
-export function PatientForm({ patient }: { patient?: Patient }) {
-  const router = useRouter()
+export const PATIENT_FORM_ID = "patient-form"
+
+/** Estado que o dialog precisa para o rodapé (enviar/desabilitar) e para confirmar o descarte. */
+export interface PatientFormState {
+  isDirty: boolean
+  pending: boolean
+}
+
+/**
+ * Campos do cadastro de paciente. Vive dentro do `DialogBody` de `PatientFormDialog`: o botão de enviar fica no rodapé
+ * fixo do dialog (`form={PATIENT_FORM_ID}`), então o formulário só informa `isDirty`/`pending` por `onStateChange`.
+ */
+export function PatientForm({
+  patient,
+  onSaved,
+  onStateChange,
+}: {
+  patient?: Patient
+  onSaved: (saved: Patient) => void
+  onStateChange?: (state: PatientFormState) => void
+}) {
   const { professionals } = useLookups()
   const save = useSavePatient(patient?.id)
   const {
@@ -42,9 +59,10 @@ export function PatientForm({ patient }: { patient?: Patient }) {
     id: patient?.id,
   })
 
-  const onSubmit = handleSubmit((values) =>
-    save.mutate(values, { onSuccess: (saved) => router.push(`/pacientes/${saved.id}`) })
-  )
+  const pending = save.isPending
+  useEffect(() => onStateChange?.({ isDirty, pending }), [onStateChange, isDirty, pending])
+
+  const onSubmit = handleSubmit((values) => save.mutate(values, { onSuccess: onSaved }))
 
   const field = (name: keyof PatientInput) => ({
     id: `patient-${name}`,
@@ -53,7 +71,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
   })
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+    <form id={PATIENT_FORM_ID} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
       {!!duplicates?.length && (
         <div role="status" className="flex gap-3 rounded-xl border border-accent bg-accent/40 p-4 text-accent-foreground">
           <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
@@ -200,15 +218,6 @@ export function PatientForm({ patient }: { patient?: Patient }) {
           <Textarea rows={3} {...register("administrativeNotes")} {...field("administrativeNotes")} />
         </FormField>
       </SectionCard>
-
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Link href={patient ? `/pacientes/${patient.id}` : "/pacientes"} className={buttonVariants({ variant: "outline" })}>
-          Cancelar
-        </Link>
-        <Button type="submit" disabled={save.isPending || (!!patient && !isDirty)}>
-          {save.isPending ? "Salvando…" : patient ? "Salvar alterações" : "Cadastrar paciente"}
-        </Button>
-      </div>
     </form>
   )
 }

@@ -6,8 +6,9 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ROLE_LABELS } from "@/domain/permissions"
 import type { UserAccount } from "@/domain/types"
-import { useCurrentUser } from "@/shared/lib/current-user"
+import { useCan, useCurrentUser } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ActivePill, StatePill } from "@/shared/ui/atoms/state-pill"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
@@ -30,7 +31,8 @@ export function UsersTab() {
   const { professional } = useLookups()
   const { user: me } = useCurrentUser()
   const setActive = useSetUserActive()
-  const [editing, setEditing] = useState<{ user?: UserAccount } | null>(null)
+  const canManage = useCan("users:manage")
+  const editor = useUrlEditor({ items: users.data, isLoading: users.isPending, allowed: canManage })
   const [passwordFor, setPasswordFor] = useState<UserAccount | null>(null)
 
   const roleLabel = useMemo(
@@ -103,7 +105,7 @@ export function UsersTab() {
       description="Quem acessa o sistema, com quais papéis. Desativar preserva o histórico; usuários nunca são apagados."
       actions={
         <PermissionGate permission="users:manage">
-          <Button onClick={() => setEditing({})}>
+          <Button onClick={editor.openNew}>
             <Plus data-icon="inline-start" aria-hidden />
             Novo usuário
           </Button>
@@ -127,8 +129,8 @@ export function UsersTab() {
         rowActions={(account) =>
           userActions(account, {
             isSelf: me?.id === account.id,
-            onEdit: () => setEditing({ user: account }),
-            onEditRoles: () => setEditing({ user: account }),
+            onEdit: () => editor.openEdit(account),
+            onEditRoles: () => editor.openEdit(account),
             onResetPassword: () => setPasswordFor(account),
             onSetActive: (active) => setActive.mutate({ id: account.id, active }),
           })
@@ -136,7 +138,9 @@ export function UsersTab() {
         empty={{ title: "Nenhum usuário cadastrado" }}
       />
 
-      {editing && <UserFormDialog user={editing.user} roles={roles.data} onClose={() => setEditing(null)} />}
+      {(editor.creating || editor.editing) && (
+        <UserFormDialog key={editor.editing?.id ?? "novo"} user={editor.editing} roles={roles.data} onClose={editor.close} />
+      )}
       {passwordFor && <PasswordResetDialog user={passwordFor} onClose={() => setPasswordFor(null)} />}
     </SectionCard>
   )

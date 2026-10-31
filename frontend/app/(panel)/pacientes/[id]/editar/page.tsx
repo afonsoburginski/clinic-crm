@@ -1,10 +1,7 @@
-import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
-import { EditPatientView } from "@/modules/patients/components/patient-form-views"
-
-export const metadata: Metadata = { title: "Editar paciente" }
-
+/** A edição abre em dialog sobre a ficha: esta rota antiga só redireciona (links e favoritos continuam valendo). */
 export default async function EditPatientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <EditPatientView id={id} />
+  redirect(`/pacientes/${encodeURIComponent(id)}?editar=1`)
 }

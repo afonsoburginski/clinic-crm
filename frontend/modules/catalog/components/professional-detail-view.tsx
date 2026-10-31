@@ -1,11 +1,11 @@
 "use client"
 
 import { Pencil } from "lucide-react"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlDialog, useUrlDialogGate } from "@/shared/lib/use-url-dialog"
 import { ActivePill } from "@/shared/ui/atoms/state-pill"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
 import { ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
@@ -21,7 +21,8 @@ export function ProfessionalDetailView({ id }: { id: string }) {
   const { data: professional, isLoading, error, refetch } = useProfessional(id)
   const { specialty } = useLookups()
   const canManage = useCan("professionals:manage")
-  const [editing, setEditing] = useState(false)
+  const editar = useUrlDialog("editar")
+  const editing = useUrlDialogGate(editar, canManage)
 
   if (isLoading) return <ListSkeleton rows={5} />
   if (error || !professional) return <ErrorState error={error} onRetry={() => refetch()} />
@@ -39,7 +40,7 @@ export function ProfessionalDetailView({ id }: { id: string }) {
         description={professional.specialtyIds.map((sid) => specialty.get(sid)?.name).filter(Boolean).join(" · ")}
         actions={
           canManage && (
-            <Button variant="outline" onClick={() => setEditing(true)}>
+            <Button variant="outline" onClick={() => editar.open()}>
               <Pencil data-icon="inline-start" aria-hidden />
               Editar dados
             </Button>
@@ -68,7 +69,7 @@ export function ProfessionalDetailView({ id }: { id: string }) {
         <UnavailabilitySection professional={professional} editable={canManage} />
       </div>
 
-      {editing && <ProfessionalFormDialog professional={professional} onClose={() => setEditing(false)} />}
+      {editing && <ProfessionalFormDialog professional={professional} onClose={editar.close} />}
     </>
   )
 }

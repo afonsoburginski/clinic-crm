@@ -58,3 +58,35 @@ Popovers e selects dentro de um dialog usam o portal do base-ui na mesma árvore
 
 - Novo dialog: `Dialog` → `DialogContent size="…"` → `DialogHeader` + `DialogBody` + `DialogFooter`. O teste varre `modules/` e `shared/` e falha se um `DialogContent` não usa `DialogBody`, se alguém define largura por `className` ou usa variante inexistente.
 - Tokens, tipografia e espaçamentos são os do design system (`--dialog-pad`, `glass-modal`, `glass-sticky`); sem roxo/violeta.
+
+## Formulário em dialog (`FormDialog`)
+
+Todo formulário de criar/editar usa `shared/ui/molecules/form-dialog.tsx` (nunca `Dialog` + `DialogContent` montados à mão): ele monta header fixo (`title`/`description`), corpo rolável (`children` = o `<form id={formId}>`), rodapé fixo (Cancelar + botão de enviar com `form={formId}`) e o aviso de descarte.
+
+- `isDirty` (hook-form: `form.formState.isDirty`; formulário de `useState`: comparação com o estado inicial): fechar por Esc, clique fora, X ou Cancelar pede "Descartar alterações?" (`ConfirmDialog` aninhado). Salvar com sucesso chama `onClose` direto, sem confirmar.
+- Durante o envio (`pending`) o dialog não fecha e Cancelar fica desabilitado: o resultado (sucesso ou erro) sempre chega a quem está olhando. Erro da API continua no formulário, sem fechar.
+- Edição de registro que a tela não tem em mãos (ex.: `?editar=<id>` numa lista paginada no servidor): `FormDialogLoader` busca o registro e mostra carregando/erro no mesmo dialog; `FormDialogState` é o dialog sem formulário (carregando/erro).
+- Tamanhos: `sm` poucos campos; `md` padrão; `lg`/`xl` formulários grandes (paciente: `xl`). O foco inicial vai para o primeiro campo (primeiro elemento focável do corpo).
+
+## Dialog por rota/query
+
+Criar e editar **não trocam a tela**: o dialog abre por cima da lista ou da ficha, que continuam montadas (cabeçalho, abas, filtros e rolagem intactos). O estado "dialog aberto" mora na URL, então o link é compartilhável e sobrevive a F5.
+
+| Query | Onde | Abre |
+| --- | --- | --- |
+| `?novo=1` | listas (`/pacientes`, `/profissionais`, `/servicos`, `/salas`, `/financeiro`, `/documentos`, `/aba`, `/avaliacoes`, `/prontuarios/<paciente>`, `/configuracoes?aba=usuarios`) | dialog de criação |
+| `?editar=<id>` | as mesmas listas | dialog de edição do registro `id` |
+| `?editar=1` | fichas (`/pacientes/<id>`, `/profissionais/<id>`, `/aba/<id>`) | dialog de edição do registro da própria página |
+
+Regras (`shared/lib/url-dialog.ts` puro + `shared/lib/use-url-dialog.ts`):
+
+- `useUrlDialog("novo" | "editar")` devolve `{ isOpen, value, open(value?), close() }`; `useUrlEditor({ items, isLoading, allowed })` é a forma pronta para listas (`creating`, `editing`, `openNew`, `openEdit(item)`, `close`); `useUrlDialogGate` aplica a permissão em fichas; `useUrlParam("aba")` guarda a aba ativa na URL.
+- A troca de URL é `history.replaceState` (integrado ao `useSearchParams` do Next): não navega, não refaz a rota, não remonta a página (aba ativa e rolagem ficam como estão) e **não cria entrada no histórico** ("Voltar" sai da página, não "fecha o dialog"). Os demais parâmetros e o hash são preservados.
+- `novo` e `editar` são mutuamente exclusivos: abrir um remove o outro. Valores fora de `[\w.-]{1,100}` são ignorados.
+- Sem permissão (`allowed` falso), ou com `?editar=<id>` que a lista não tem, o parâmetro é removido e um aviso é mostrado; o dialog nunca fica preso.
+- Duplicar é estado local (o `template` não vai para a URL). Dialogs secundários de fichas (vínculo de responsável, meta e sessão ABA, especialidade, redefinir senha, reagendar) são estado local, sem deep-link, mas usam o mesmo `FormDialog`.
+- `useSearchParams` exige `Suspense`: o `PanelShell` envolve todas as telas do painel.
+- Rotas antigas `/pacientes/novo` e `/pacientes/<id>/editar` só fazem `redirect()` no servidor para a página pai com a query. Sem sessão, o painel leva ao login com `?next=` e o login volta ao mesmo endereço (`shared/lib/return-to.ts`).
+- A agenda mantém o atalho existente `/agenda?novo=1&paciente=<id>`, que abre o agendamento já preenchido e consome os parâmetros.
+
+O teste `shared/ui/__tests__/edit-dialog-contract.test.ts` varre o código: rotas `/editar` e `/novo` só redirecionam, nenhum arquivo navega para `/editar` ou `/novo`, todo dialog com `useForm` usa `FormDialog` e as telas listadas usam `useUrlEditor`/`useUrlDialog`.

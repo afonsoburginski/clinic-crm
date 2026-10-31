@@ -12,6 +12,7 @@ import { useAppointmentActionsFor } from "@/modules/scheduling/lib/use-appointme
 import { formatAge, formatBirthDate, formatDate } from "@/shared/lib/format"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlDialog, useUrlDialogGate } from "@/shared/lib/use-url-dialog"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
 import { EntityActionsButton, EntityContextMenu, EntityMenu } from "@/shared/ui/entity-menu"
@@ -22,6 +23,7 @@ import { SectionCard } from "@/shared/ui/molecules/section-card"
 import { patientActions } from "../lib/patient-actions"
 import { usePatient, usePatientAppointments, useSetPatientStatus } from "../queries"
 import { GuardianLinksSection } from "./guardian-links-section"
+import { PatientFormDialog } from "./patient-form-dialog"
 import { PatientStatusPill } from "./patient-status-pill"
 
 export function PatientDetailView({ id }: { id: string }) {
@@ -30,6 +32,8 @@ export function PatientDetailView({ id }: { id: string }) {
   const canSchedule = useCan("appointments:write")
   const router = useRouter()
   const setStatus = useSetPatientStatus()
+  const editar = useUrlDialog("editar")
+  const editing = useUrlDialogGate(editar, canWrite)
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />
   if (isLoading || !patient) return <ListSkeleton rows={6} />
@@ -39,7 +43,7 @@ export function PatientDetailView({ id }: { id: string }) {
   const actions = patientActions(patient, {
     inDetail: true,
     onView: () => router.push(`/pacientes/${patient.id}`),
-    onEdit: () => router.push(`/pacientes/${patient.id}/editar`),
+    onEdit: () => editar.open(),
     onSchedule: () => router.push(`/agenda?novo=1&paciente=${patient.id}`),
     onSetStatus: (status) => setStatus.mutate({ patient, status }),
   })
@@ -62,10 +66,10 @@ export function PatientDetailView({ id }: { id: string }) {
             actions={
               <>
                 {canWrite && (
-                  <Link href={`/pacientes/${patient.id}/editar`} className={buttonVariants({ variant: "outline" })}>
+                  <Button variant="outline" onClick={() => editar.open()}>
                     <PencilLine aria-hidden />
                     Editar
-                  </Link>
+                  </Button>
                 )}
                 {canSchedule && patient.status === "active" && (
                   <Link href={`/agenda?novo=1&paciente=${patient.id}`} className={buttonVariants()}>
@@ -96,6 +100,8 @@ export function PatientDetailView({ id }: { id: string }) {
           <PatientAppointments patientId={patient.id} />
         </TabsContent>
       </Tabs>
+
+      {editing && <PatientFormDialog patient={patient} onClose={editar.close} />}
     </>
   )
 }

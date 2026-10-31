@@ -3,12 +3,13 @@
 import { Plus, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import type { Professional } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { ActivePill } from "@/shared/ui/atoms/state-pill"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
@@ -30,8 +31,7 @@ export function ProfessionalsListView() {
   const router = useRouter()
   const { professionals, specialties, specialty, isLoading } = useLookups()
   const canManage = useCan("professionals:manage")
-  const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<Professional | null>(null)
+  const editor = useUrlEditor({ items: professionals, isLoading, allowed: canManage })
   const setActive = useSetProfessionalActive()
 
   const columns = useMemo<DataTableColumn<Professional>[]>(
@@ -140,7 +140,7 @@ export function ProfessionalsListView() {
         description="Equipe de atendimento, especialidades, grade semanal e afastamentos."
         actions={
           canManage && (
-            <Button onClick={() => setCreating(true)}>
+            <Button onClick={editor.openNew}>
               <Plus data-icon="inline-start" aria-hidden />
               Novo profissional
             </Button>
@@ -165,15 +165,16 @@ export function ProfessionalsListView() {
           rowActions={(p) =>
             professionalActions(p, {
               onView: () => router.push(`/profissionais/${p.id}`),
-              onEdit: () => setEditing(p),
+              onEdit: () => editor.openEdit(p),
               onSetActive: (active) => setActive.mutate({ professional: p, active }),
             })
           }
         />
       </SectionCard>
 
-      {creating && <ProfessionalFormDialog onClose={() => setCreating(false)} />}
-      {editing && <ProfessionalFormDialog professional={editing} onClose={() => setEditing(null)} />}
+      {(editor.creating || editor.editing) && (
+        <ProfessionalFormDialog key={editor.editing?.id ?? "novo"} professional={editor.editing} onClose={editor.close} />
+      )}
     </>
   )
 }

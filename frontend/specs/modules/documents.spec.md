@@ -10,6 +10,7 @@ Dados na API (`/documents`, `/documents/:id/status`, `/documents/:id/releases`),
 - **RF-DOC-002** Estados: `rascunho → emitido → arquivado`.
 - **RF-DOC-003** Liberar documento emitido para responsáveis, de forma explícita, e revogar a liberação.
 - **RF-DOC-004** Listar com filtros de paciente, classificação e estado, mostrando só o que o perfil pode ver.
+- **RF-DOC-005** Novo documento, editar rascunho e duplicar abrem em dialog sobre a lista, endereçável por `?novo=1` e `?editar=<id>` (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query").
 
 ## Regras
 

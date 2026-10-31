@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form"
 import { HaloButton } from "@/components/ui/halo-button"
 import { loginSchema, type LoginInput } from "@/domain/schemas"
 import { api } from "@/shared/api/api"
+import { afterLoginPath } from "@/shared/lib/return-to"
 import { Input } from "@/shared/ui/atoms/text-input"
 import { FormField } from "@/shared/ui/molecules/form-field"
 
@@ -33,7 +34,7 @@ export function SignInForm() {
     try {
       await api.auth.signIn(values)
       client.clear()
-      router.replace("/painel")
+      router.replace(afterLoginPath(window.location.search))
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Não foi possível entrar.")
     }

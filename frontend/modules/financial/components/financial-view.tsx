@@ -6,16 +6,19 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { clinicDateKey } from "@/domain/clinic-time"
 import type { FinancialEntry } from "@/domain/types"
+import { useCan } from "@/shared/lib/current-user"
+import { useUrlDialog, useUrlDialogGate } from "@/shared/lib/use-url-dialog"
 import { DataTable, type DataTableState } from "@/shared/ui/data-table"
 import { withFilter } from "@/shared/ui/data-table/lib/filters"
 import type { DateRangeValue } from "@/shared/ui/date-range-picker"
+import { FormDialogLoader } from "@/shared/ui/molecules/form-dialog"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
 import { defaultFinancialState, FILTER_COLUMNS, filtersFromState, searchParamsFromState } from "../lib/filters"
 import { financialActions } from "../lib/financial-actions"
-import { useCancelEntryRow, useFinancialReport, useFinancialSearch } from "../queries"
+import { useCancelEntryRow, useFinancialEntry, useFinancialReport, useFinancialSearch } from "../queries"
 import { DistributionChart } from "./distribution-chart"
 import { EntryDetailDialog } from "./entry-detail-dialog"
 import { EntryFormDialog } from "./entry-form-dialog"
@@ -34,7 +37,11 @@ export function FinancialView() {
   const defaultState = useMemo(() => defaultFinancialState(today), [today])
   const [tableState, setTableState] = useState<DataTableState>(defaultState)
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [editing, setEditing] = useState<FinancialEntry | "new" | null>(null)
+  const canWrite = useCan("finance:write")
+  const novo = useUrlDialog("novo")
+  const editar = useUrlDialog("editar")
+  const creating = useUrlDialogGate(novo, canWrite)
+  const editingId = useUrlDialogGate(editar, canWrite) ? editar.value : null
   const [template, setTemplate] = useState<FinancialEntry | null>(null)
   const cancelEntry = useCancelEntryRow()
 
@@ -52,7 +59,7 @@ export function FinancialView() {
 
   const newEntry = (
     <PermissionGate permission="finance:write">
-      <Button onClick={() => setEditing("new")}>
+      <Button onClick={() => novo.open()}>
         <Plus aria-hidden />
         Novo lançamento
       </Button>
@@ -117,7 +124,7 @@ export function FinancialView() {
             financialActions(row, {
               onView: () => setDetailId(row.entry.id),
               onPay: () => setDetailId(row.entry.id),
-              onEdit: () => setEditing(row.entry),
+              onEdit: () => editar.open(row.entry.id),
               onDuplicate: () => setTemplate(row.entry),
               onCancel: (reason) => cancelEntry.mutate({ id: row.entry.id, input: { reason } }),
             })
@@ -130,22 +137,24 @@ export function FinancialView() {
           entryId={detailId}
           onClose={() => setDetailId(null)}
           onEdit={() => {
-            const row = search.data?.items.find((item) => item.entry.id === detailId)
-            if (row) {
-              setDetailId(null)
-              setEditing(row.entry)
-            }
+            setDetailId(null)
+            editar.open(detailId)
           }}
         />
       )}
       {template && <EntryFormDialog template={template} defaultCompetence={filters.competence ?? today.slice(0, 7)} onClose={() => setTemplate(null)} />}
-      {editing && (
-        <EntryFormDialog
-          entry={editing === "new" ? undefined : editing}
-          defaultCompetence={filters.competence ?? today.slice(0, 7)}
-          onClose={() => setEditing(null)}
-        />
-      )}
+      {creating && <EntryFormDialog defaultCompetence={filters.competence ?? today.slice(0, 7)} onClose={novo.close} />}
+      {editingId && <EntryEditDialog id={editingId} defaultCompetence={filters.competence ?? today.slice(0, 7)} onClose={editar.close} />}
     </>
+  )
+}
+
+/** `?editar=<id>`: a tabela é paginada no servidor, então o lançamento é buscado pelo id (carregando/erro no próprio dialog). */
+function EntryEditDialog({ id, defaultCompetence, onClose }: { id: string; defaultCompetence: string; onClose: () => void }) {
+  const { data, error, refetch } = useFinancialEntry(id)
+  return (
+    <FormDialogLoader title="Editar lançamento" state={{ data: data?.entry, error, refetch }} onClose={onClose}>
+      {(entry) => <EntryFormDialog key={entry.id} entry={entry} defaultCompetence={defaultCompetence} onClose={onClose} />}
+    </FormDialogLoader>
   )
 }

@@ -1,13 +1,14 @@
 "use client"
 
 import { FolderOpen, Plus } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { activeReleases, CLASSIFICATION_LABELS, DOCUMENT_STATUS_LABELS, documentAccess } from "@/domain/documents"
 import type { DocumentClassification, DocumentStatus, PatientDocument } from "@/domain/types"
 import { useCurrentUser } from "@/shared/lib/current-user"
 import { formatDate } from "@/shared/lib/format"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import type { DocumentRow } from "@/shared/api/api"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
@@ -82,12 +83,13 @@ const COLUMNS: DataTableColumn<DocumentRow>[] = [
 export function DocumentsView() {
   const { user } = useCurrentUser()
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [editing, setEditing] = useState<PatientDocument | "new" | null>(null)
   const [template, setTemplate] = useState<PatientDocument | null>(null)
   const setStatus = useSetDocumentStatusRow()
   const { data, isLoading, error, refetch, isPlaceholderData } = useDocuments({ classification: "all", status: "all" })
 
   const canCreate = (["clinical", "administrative", "financial"] as const).some((c) => documentAccess(user, c, true).write)
+  const documents = useMemo(() => data?.map((row) => row.doc), [data])
+  const editor = useUrlEditor({ items: documents, isLoading, allowed: canCreate })
 
   return (
     <>
@@ -96,7 +98,7 @@ export function DocumentsView() {
         description="Documentos classificados por tipo de conteúdo, com estado e permissões próprias. A liberação a responsáveis é sempre explícita."
         actions={
           canCreate && (
-            <Button onClick={() => setEditing("new")}>
+            <Button onClick={editor.openNew}>
               <Plus aria-hidden />
               Novo documento
             </Button>
@@ -124,7 +126,7 @@ export function DocumentsView() {
           rowActions={({ doc, canWrite }) =>
             documentActions(doc, canWrite, {
               onView: () => setDetailId(doc.id),
-              onEdit: () => setEditing(doc),
+              onEdit: () => editor.openEdit(doc),
               onDuplicate: () => setTemplate(doc),
               onIssue: () => setStatus.mutate({ id: doc.id, to: "issued" }),
               onArchive: () => setStatus.mutate({ id: doc.id, to: "archived" }),
@@ -139,11 +141,11 @@ export function DocumentsView() {
           onClose={() => setDetailId(null)}
           onEdit={(doc) => {
             setDetailId(null)
-            setEditing(doc)
+            editor.openEdit(doc)
           }}
         />
       )}
-      {editing && <DocumentFormDialog document={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
+      {(editor.creating || editor.editing) && <DocumentFormDialog key={editor.editing?.id ?? "novo"} document={editor.editing} onClose={editor.close} />}
       {template && <DocumentFormDialog template={template} onClose={() => setTemplate(null)} />}
     </>
   )

@@ -10,6 +10,7 @@ Gestão de usuários, papéis e a matriz editável: `specs/modules/users-roles.s
 - **RF-AUTH-003** Rotas internas exigem sessão; sem sessão, redirecionar para `/`.
 - **RF-AUTH-004** A navegação exibe apenas itens que o perfil pode acessar.
 - **RF-AUTH-005** A sessão guarda o token e o usuário devolvidos pela API (`villiere-session`); no recarregamento o token é revalidado em `GET /auth/session` e, se recusado ou vencido, a sessão local é encerrada. Sair revoga o token no servidor.
+- **RF-AUTH-006** Abrir uma URL do painel sem sessão (link direto, F5 com token vencido) leva ao login com o destino em `?next=`; depois de entrar, o usuário volta ao mesmo endereço (inclusive `?novo=1`/`?editar=`). Só caminhos internos são aceitos (`shared/lib/return-to.ts`); sair ou expirar durante o uso vai ao login sem destino.
 
 ## Regras de negócio
 

@@ -9,6 +9,7 @@ import type { AbaGoal, AbaPlan, AbaSession } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { formatBirthDate, formatDateTime } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlDialog, useUrlDialogGate } from "@/shared/lib/use-url-dialog"
 import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
@@ -20,13 +21,15 @@ import { AbaPlanFormDialog } from "./aba-plan-form-dialog"
 import { AbaSessionDialog } from "./aba-session-dialog"
 import { GoalStatusPill, PlanStatusPill } from "./aba-status-pill"
 
-type Dialogs = { kind: "plan" } | { kind: "goal"; goal?: AbaGoal } | { kind: "session" } | null
+type Dialogs = { kind: "goal"; goal?: AbaGoal } | { kind: "session" } | null
 
 export function AbaPlanDetailView({ id }: { id: string }) {
   const { data, error, isLoading, refetch } = useAbaPlan(id)
   const { patient, professional } = useLookups()
   const canWrite = useCan("clinical:write")
   const [dialog, setDialog] = useState<Dialogs>(null)
+  const editar = useUrlDialog("editar")
+  const editingPlan = useUrlDialogGate(editar, canWrite && data?.plan.status !== "closed")
   const [closing, setClosing] = useState(false)
   const activate = useActivatePlan(id)
   const close = useClosePlan(id)
@@ -55,7 +58,7 @@ export function AbaPlanDetailView({ id }: { id: string }) {
         actions={
           editable && (
             <>
-          <Button variant="outline" onClick={() => setDialog({ kind: "plan" })}>
+          <Button variant="outline" onClick={() => editar.open()}>
             <PencilLine aria-hidden />
             Editar plano
           </Button>
@@ -141,7 +144,7 @@ export function AbaPlanDetailView({ id }: { id: string }) {
         </SectionCard>
       </div>
 
-      {dialog?.kind === "plan" && <AbaPlanFormDialog plan={plan} onClose={() => setDialog(null)} />}
+      {editingPlan && <AbaPlanFormDialog plan={plan} onClose={editar.close} />}
       {dialog?.kind === "goal" && <AbaGoalDialog planId={plan.id} goal={dialog.goal} onClose={() => setDialog(null)} />}
       {dialog?.kind === "session" && <AbaSessionDialog plan={plan} onClose={() => setDialog(null)} />}
 

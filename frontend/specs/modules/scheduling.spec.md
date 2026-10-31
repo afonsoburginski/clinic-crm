@@ -12,6 +12,7 @@ Testes: `domain/__tests__/scheduling.test.ts`, `domain/__tests__/appointment-sta
 - **RF-AGD-005** Recorrência semanal de 1 a 12 ocorrências.
 - **RF-AGD-006** Detalhe do agendamento com ações de status permitidas ao usuário.
 - **RF-AGD-007** Reagendar mantendo o histórico na auditoria.
+- **RF-AGD-008** Novo agendamento e reagendar abrem em dialog sobre a agenda (com confirmação de descarte). `/agenda?novo=1&paciente=<id>` abre o novo agendamento já com o paciente e consome os parâmetros da URL; reagendar parte do detalhe ou do menu de contexto do agendamento (estado local, sem deep-link, porque a agenda carrega por intervalo de datas).
 
 ## Regras de negócio
 

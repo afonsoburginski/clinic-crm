@@ -1,9 +1,6 @@
-import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
-import { NewPatientView } from "@/modules/patients/components/patient-form-views"
-
-export const metadata: Metadata = { title: "Novo paciente" }
-
+/** O cadastro abre em dialog sobre a lista: esta rota antiga só redireciona (links e favoritos continuam valendo). */
 export default function NewPatientPage() {
-  return <NewPatientView />
+  redirect("/pacientes?novo=1")
 }

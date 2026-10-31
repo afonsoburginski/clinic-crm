@@ -20,6 +20,7 @@ Implementação: `modules/professionals/`, `modules/catalog/` · Testes: `domain
 - **RF-CAT-001** Especialidades: nome, descrição, ativa.
 - **RF-CAT-002** Serviços: nome, especialidade, duração padrão, valor de referência, exige sala, ativo.
 - **RF-CAT-003** Salas: nome, capacidade, uso exclusivo, observações, ativa.
+- **RF-CAT-004** Criar e editar profissional, serviço e sala abre em dialog sobre a lista (ou sobre a ficha do profissional), endereçável por `?novo=1` e `?editar=<id>` (na ficha do profissional, `?editar=1`) (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query"); salvar ou cancelar fecha o dialog sem perder a posição da tela. Especialidades e agenda do profissional seguem editando na própria página.
 
 ## Regras — Catálogo
 

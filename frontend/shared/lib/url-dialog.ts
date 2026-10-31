@@ -35,6 +35,15 @@ export function parseUrlDialog(search: string | URLSearchParams, key: UrlDialogK
   return { isOpen: true, value: raw }
 }
 
+/** Define (ou remove, com `null`) um parâmetro da query mantendo o resto, o caminho e o hash. */
+export function buildUrlParam(location: UrlDialogLocation, name: string, value: string | null): string {
+  const params = new URLSearchParams(location.search)
+  if (value === null) params.delete(name)
+  else params.set(name, value)
+  const query = params.toString()
+  return `${location.pathname}${query ? `?${query}` : ""}${location.hash ?? ""}`
+}
+
 /**
  * Nova URL (caminho + query + hash) com o dialog `key` aberto (`value`) ou fechado (`null`).
  * Preserva os demais parâmetros (`?aba=`, filtros) e o hash; ao abrir, fecha o dialog irmão.

@@ -6,8 +6,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RECORD_KIND_LABELS, RECORD_STATUS_LABELS } from "@/domain/clinical-record"
 import type { ClinicalRecord, ClinicalRecordKind, ClinicalRecordStatus } from "@/domain/types"
-import { useCurrentUser } from "@/shared/lib/current-user"
+import { useCan, useCurrentUser } from "@/shared/lib/current-user"
 import { formatAge, formatDateTime } from "@/shared/lib/format"
+import { useUrlEditor } from "@/shared/lib/use-url-dialog"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
@@ -72,8 +73,9 @@ export function PatientChartView({ patientId }: { patientId: string }) {
   const patientQuery = useChartPatient(patientId)
   const records = useRecords(patientId, "all")
   const [detailId, setDetailId] = useState<string | null>(null)
-  const [editing, setEditing] = useState<ClinicalRecord | "new" | null>(null)
   const { user } = useCurrentUser()
+  const canWrite = useCan("clinical:write")
+  const editor = useUrlEditor({ items: records.data, isLoading: records.isLoading, allowed: canWrite })
   const finalize = useFinalizeRecord()
   const rectify = useRectifyRecord()
 
@@ -98,7 +100,7 @@ export function PatientChartView({ patientId }: { patientId: string }) {
         }
         actions={
           <PermissionGate permission="clinical:write">
-            <Button onClick={() => setEditing("new")}>
+            <Button onClick={editor.openNew}>
               <FilePlus2 aria-hidden />
               Novo registro
             </Button>
@@ -125,17 +127,17 @@ export function PatientChartView({ patientId }: { patientId: string }) {
             recordActions(r, {
               isAuthor: user?.id === r.authorId,
               onView: () => setDetailId(r.id),
-              onEdit: () => setEditing(r),
+              onEdit: () => editor.openEdit(r),
               onFinalize: () => finalize.mutate(r.id),
               onRectify: (reason) =>
-                rectify.mutate({ id: r.id, input: { reason } }, { onSuccess: (draft) => setEditing(draft) }),
+                rectify.mutate({ id: r.id, input: { reason } }, { onSuccess: (draft) => editor.openEdit(draft) }),
             })
           }
         />
       </SectionCard>
 
-      {editing && (
-        <RecordFormDialog patientId={patientId} record={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />
+      {(editor.creating || editor.editing) && (
+        <RecordFormDialog key={editor.editing?.id ?? "novo"} patientId={patientId} record={editor.editing} onClose={editor.close} />
       )}
       {detailId && (
         <RecordDetailDialog
@@ -143,7 +145,7 @@ export function PatientChartView({ patientId }: { patientId: string }) {
           onClose={() => setDetailId(null)}
           onEdit={(record) => {
             setDetailId(null)
-            setEditing(record)
+            editor.openEdit(record)
           }}
         />
       )}

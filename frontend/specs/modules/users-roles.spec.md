@@ -10,6 +10,7 @@ Testes: `domain/__tests__/{roles-matrix,users,permissions}.test.ts`, `shared/api
 - **RF-USR-003** A aba **Papéis e permissões** mostra a matriz papel × permissão agrupada por área, com a contagem de usuários por papel. Quem tem `users:manage` marca e desmarca células e salva; os demais só leem. Só os papéis alterados são enviados.
 - **RF-USR-004** A navegação mostra Configurações para quem tem `settings:manage` ou `users:read`; cada aba aparece só para quem tem a permissão dela (`settings:manage` → Clínica; `users:read` → Usuários e Papéis). Toda ação de escrita fica dentro de `PermissionGate permission="users:manage"`.
 - **RF-USR-005** Quem tem `users:read` vê o nome de quem agiu (autor de registros, pagamentos, liberações, interpretações e eventos de auditoria); os demais perfis veem o rótulo "Usuário da clínica". A lista de nomes é carregada uma vez por minuto, sem chamada para perfis sem a permissão.
+- **RF-USR-006** A aba ativa de Configurações vive na URL (`?aba=clinica|usuarios|papeis`); novo usuário e editar usuário abrem em dialog sobre a lista, endereçável por `?aba=usuarios&novo=1` e `?aba=usuarios&editar=<id>` (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query"). Redefinir senha é um dialog local, sem deep-link.
 
 ## Regras de negócio
 

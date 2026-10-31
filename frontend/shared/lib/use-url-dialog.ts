@@ -1,10 +1,10 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { notifyInfo } from "./notify"
-import { buildUrlDialog, parseUrlDialog, URL_DIALOG_FLAG, type UrlDialogKey } from "./url-dialog"
+import { buildUrlDialog, buildUrlParam, parseUrlDialog, URL_DIALOG_FLAG, type UrlDialogKey } from "./url-dialog"
 
 export interface UrlDialog {
   isOpen: boolean
@@ -41,17 +41,84 @@ export function useUrlDialog(key: UrlDialogKey): UrlDialog {
 }
 
 /**
- * Registro de `?editar=<id>` dentro de uma lista já carregada. Link velho (registro apagado, outra clínica ou sem
- * permissão de leitura) não deixa o dialog preso: depois do carregamento, fecha e avisa.
+ * Parâmetro de query de estado de tela (ex.: `?aba=usuarios`): a escolha vira parte do link (deep-link e F5 voltam à
+ * mesma aba) sem navegar nem criar entrada no histórico. `null` quando ausente.
  */
-export function useUrlEditTarget<T extends { id: string }>(editar: UrlDialog, items: readonly T[] | undefined, isLoading: boolean) {
-  const target = editar.value ? items?.find((item) => item.id === editar.value) : undefined
-  const missing = editar.isOpen && !isLoading && !!items && !target
-  const { close } = editar
+export function useUrlParam(name: string): [string | null, (value: string | null) => void] {
+  const searchParams = useSearchParams()
+  const set = useCallback(
+    (value: string | null) => {
+      const { pathname, search, hash } = window.location
+      window.history.replaceState(null, "", buildUrlParam({ pathname, search, hash }, name, value))
+    },
+    [name]
+  )
+  return [searchParams.get(name), set]
+}
+
+const DENIED_MESSAGE = "Seu perfil não tem permissão para esta ação."
+
+/**
+ * Dialog aberto pela URL só vale com permissão: link de quem não pode escrever fecha o dialog e avisa
+ * (a UI apenas esconde o botão; a API continua sendo a autoridade).
+ */
+export function useUrlDialogGate(dialog: UrlDialog, allowed: boolean): boolean {
+  const denied = dialog.isOpen && !allowed
+  const { close } = dialog
+  useEffect(() => {
+    if (!denied) return
+    notifyInfo(DENIED_MESSAGE)
+    close()
+  }, [denied, close])
+  return dialog.isOpen && allowed
+}
+
+/**
+ * Criar/editar de uma tela de LISTA: `?novo=1` abre o dialog de criação e `?editar=<id>` o de edição do registro
+ * `id` da lista já carregada. Link velho (registro apagado, de outra clínica ou fora do escopo de leitura) não deixa o
+ * dialog preso: depois do carregamento fecha e avisa. Sem `allowed` nenhum dos dois abre.
+ */
+export function useUrlEditor<T extends { id: string }>({
+  items,
+  isLoading,
+  allowed = true,
+}: {
+  items: readonly T[] | undefined
+  isLoading: boolean
+  allowed?: boolean
+}) {
+  const novo = useUrlDialog("novo")
+  const editar = useUrlDialog("editar")
+  const novoOpen = useUrlDialogGate(novo, allowed)
+  const editOpen = useUrlDialogGate(editar, allowed)
+  // URL escrita à mão com os dois: `editar` vence (a ação em si nunca gera essa combinação).
+  const creating = novoOpen && !editOpen
+
+  // `openEdit(item)` guarda o objeto: quem abre logo depois de criar (ex.: retificar um registro) não espera a lista recarregar.
+  const [opened, setOpened] = useState<T>()
+  const target = editar.value ? (items?.find((item) => item.id === editar.value) ?? (opened?.id === editar.value ? opened : undefined)) : undefined
+  const missing = editOpen && !isLoading && !!items && !target
+  const { close: closeEdit } = editar
   useEffect(() => {
     if (!missing) return
     notifyInfo("Não encontramos o registro deste link.")
-    close()
-  }, [missing, close])
-  return target
+    closeEdit()
+  }, [missing, closeEdit])
+
+  const { open: openNewFlag, close: closeNew } = novo
+  const { open: openEditId } = editar
+  const openNew = useCallback(() => openNewFlag(), [openNewFlag])
+  const openEdit = useCallback(
+    (item: T) => {
+      setOpened(item)
+      openEditId(item.id)
+    },
+    [openEditId]
+  )
+  const close = useCallback(() => {
+    closeNew()
+    closeEdit()
+  }, [closeNew, closeEdit])
+
+  return { creating, editing: editOpen ? target : undefined, openNew, openEdit, close }
 }

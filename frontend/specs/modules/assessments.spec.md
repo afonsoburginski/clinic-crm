@@ -10,6 +10,7 @@ Dados na API (`/assessments`, `/assessments/:id/stages|interpretations|complete|
 - **RF-AVA-002** Acompanhar o andamento de cada etapa (pendente, em andamento, concluída).
 - **RF-AVA-003** Registrar interpretações (versões sucessivas, com autor e data).
 - **RF-AVA-004** Concluir ou cancelar a avaliação; ver histórico completo de eventos.
+- **RF-AVA-005** Nova avaliação abre em dialog sobre a lista, endereçável por `?novo=1` (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query"); ao criar, abre a ficha da avaliação.
 
 ## Regras
 

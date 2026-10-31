@@ -15,6 +15,7 @@ Dados na API (`/financial/entries`, `/financial/payments/:id/reverse`), guardado
 - **RF-FIN-007** A tabela de lançamentos pagina, ordena e filtra **no servidor** (`GET /financial/entries/search`) com período de vencimento (`DateRangePicker`), tipo, situação, forma de pagamento, categoria, competência, faixa de valor e busca por texto. O mesmo estado de filtros alimenta indicadores, gráficos, tabela e exportação. Visões salvas e preferências de colunas vêm do banco (`tableKey: financial-entries`).
 - **RF-FIN-008** **Exportar XLSX** gera a planilha a partir de `GET /financial/export` com os filtros **atuais** (sem paginação) e só aparece para quem tem `finance:export`; o servidor também recusa quem não tem.
 - **RF-FIN-009** Cada bloco (indicadores, gráficos, tabela) tem seus estados de carregando (esqueleto), vazio e erro com "Tentar novamente", sem derrubar os demais. Vazio sem filtros oferece "Novo lançamento" a quem tem `finance:write`.
+- **RF-FIN-010** Novo lançamento, editar e duplicar abrem em dialog sobre a página, endereçável por `?novo=1` e `?editar=<id>` (o lançamento é buscado pelo id, pois a tabela é paginada no servidor) (convenção em `specs/ui/dialogs.md`, seção "Dialog por rota/query"); os filtros da tela não mudam ao abrir ou fechar.
 
 ## Regras
 

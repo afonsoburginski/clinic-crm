@@ -104,7 +104,9 @@ describe("uso do componente base", () => {
   const withContent = (tag: string) => files.filter((file) => read(file).includes(`<${tag}`))
 
   it("encontra dialogs, sheets e alertdialogs para varrer", () => {
-    expect(withContent("DialogContent").length).toBeGreaterThanOrEqual(15)
+    // Formulários de criar/editar passam pelo `FormDialog` (que declara o único `DialogContent` deles).
+    const forms = files.filter((file) => read(file).includes("<FormDialog"))
+    expect(withContent("DialogContent").length + forms.length).toBeGreaterThanOrEqual(15)
     expect(withContent("SheetContent").length).toBeGreaterThanOrEqual(2)
     expect(withContent("AlertDialogContent")).toEqual([join("shared", "ui", "molecules", "confirm-dialog.tsx")])
   })

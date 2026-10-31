@@ -3,13 +3,14 @@
 import { ClipboardCheck, Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ASSESSMENT_STATUS_LABELS } from "@/domain/assessment"
 import type { Assessment, AssessmentStatus } from "@/domain/types"
-import { useCurrentUser } from "@/shared/lib/current-user"
+import { useCan, useCurrentUser } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
+import { useUrlDialog, useUrlDialogGate } from "@/shared/lib/use-url-dialog"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -27,8 +28,10 @@ const doneStages = (a: Assessment) => a.stages.filter((s) => s.status === "done"
 export function AssessmentsListView() {
   const router = useRouter()
   const { patient, professional, professionals } = useLookups()
-  const [creating, setCreating] = useState(false)
   const { user } = useCurrentUser()
+  const canWrite = useCan("clinical:write")
+  const novo = useUrlDialog("novo")
+  const creating = useUrlDialogGate(novo, canWrite)
   const { complete, cancel } = useAssessmentTransitions()
   const { data, isLoading, error, refetch } = useAssessments("all")
 
@@ -99,7 +102,7 @@ export function AssessmentsListView() {
         description="Avaliações com responsável, finalidade, etapas e histórico. Interpretações são restritas ao perfil clínico."
         actions={
           <PermissionGate permission="clinical:write">
-            <Button onClick={() => setCreating(true)}>
+            <Button onClick={() => novo.open()}>
               <Plus aria-hidden />
               Nova avaliação
             </Button>
@@ -133,7 +136,7 @@ export function AssessmentsListView() {
         />
       </SectionCard>
 
-      {creating && <AssessmentFormDialog onClose={() => setCreating(false)} onCreated={(id) => router.push(`/avaliacoes/${id}`)} />}
+      {creating && <AssessmentFormDialog onClose={novo.close} onCreated={(id) => router.push(`/avaliacoes/${id}`)} />}
     </>
   )
 }
