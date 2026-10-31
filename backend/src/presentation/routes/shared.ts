@@ -38,6 +38,7 @@ export function failure(c: any, e: unknown) {
     room_busy: [409, "room_busy"],
   };
   const [s, code] = map[m] ?? [500, "internal_error"];
+  if (code === "internal_error") console.error("[unhandled]", e);
   const message =
     code === "invalid_credentials"
       ? "E-mail ou senha incorretos."

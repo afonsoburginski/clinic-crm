@@ -11,7 +11,6 @@ import { can, ROLE_LABELS } from "@/domain/permissions"
 import type { User } from "@/domain/types"
 import { api } from "@/shared/api/demo-api"
 import { notifyError, notifySuccess } from "@/shared/lib/notify"
-import { useSessionStore } from "@/shared/lib/session-store"
 import { useUiStore } from "@/shared/lib/ui-store"
 import { PersonAvatar } from "../atoms/person-avatar"
 import { ConfirmDialog } from "../molecules/confirm-dialog"
@@ -21,7 +20,6 @@ export function AccountMenu({ user }: { user: User | null }) {
   const setResetting = useUiStore((s) => s.setDemoResetOpen)
   const closeOverlays = useUiStore((s) => s.closeAll)
   const openTour = useUiStore((s) => s.setTourOpen)
-  const signOut = useSessionStore((s) => s.signOut)
   const [pending, setPending] = useState(false)
   const router = useRouter()
   const client = useQueryClient()
@@ -58,11 +56,11 @@ export function AccountMenu({ user }: { user: User | null }) {
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => openTour(true)}><CircleHelp aria-hidden />Rever orientação do painel</DropdownMenuItem>
             {can(user, "settings:manage") && <DropdownMenuItem onClick={() => setResetting(true)}><RotateCcw aria-hidden />Restaurar dados de demonstração</DropdownMenuItem>}
-            <DropdownMenuItem onClick={() => { closeOverlays(); signOut(); client.clear(); router.replace("/entrar") }}><LogOut aria-hidden />Trocar de perfil / sair</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { closeOverlays(); void api.auth.signOut(); client.clear(); router.replace("/entrar") }}><LogOut aria-hidden />Trocar de perfil / sair</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog open={resetting} onOpenChange={setResetting} title="Restaurar dados de demonstração?" description="Todos os dados locais (pacientes, agenda, prontuários, financeiro, documentos e auditoria) voltam ao estado inicial. Não dá para desfazer." confirmLabel="Restaurar" destructive pending={pending} onConfirm={resetDemo} />
+      <ConfirmDialog open={resetting} onOpenChange={setResetting} title="Restaurar dados de demonstração?" description="Os dados locais de demonstração (prontuários, avaliações, plano ABA, financeiro e documentos) voltam ao estado inicial. Pacientes, agenda e cadastros ficam no servidor e não são afetados. Não dá para desfazer." confirmLabel="Restaurar" destructive pending={pending} onConfirm={resetDemo} />
     </>
   )
 }

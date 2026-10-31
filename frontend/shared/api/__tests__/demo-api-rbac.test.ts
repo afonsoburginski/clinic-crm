@@ -11,6 +11,8 @@ import { useSessionStore } from "@/shared/lib/session-store"
 import { emptyModules, withModuleDefaults, type DemoDB } from "@/shared/lib/demo-seed"
 
 import { api } from "../demo-api"
+import { actor, canReadPatient, now, ownPatientIds, redactClinicalAudit } from "../demo-context"
+import { revokeGuardianReleases } from "../demo-documents"
 
 // Sem latência simulada e sem persistência: o teste exercita só as regras do adaptador.
 vi.mock("@/shared/lib/demo-db", async (importOriginal) => ({
@@ -28,6 +30,14 @@ const invalid = (promise: Promise<unknown>, message: RegExp) => expect(promise).
 // Entradas fora do contrato de tipos, como chegariam de um cliente HTTP.
 const asStatus = (to: string) => ({ to, reason: "" }) as unknown as AbaGoalStatusInput
 const asConfirm = (value: unknown) => value as { confirm: true }
+
+// Pacientes, agenda e auditoria agora vêm da API (cobertos em demo-api-http.test.ts): aqui só o escopo
+// clínico dos módulos demo, que segue em `demo-context`, e a trilha de auditoria local.
+const readsPatient = (id: string) => canReadPatient(actor(), id)
+const auditList = (filters: { resource?: string } = {}) =>
+  getDB()
+    .audit.filter((e) => !filters.resource || e.resource === filters.resource)
+    .map(redactClinicalAudit)
 
 const TODAY = clinicDateKey(new Date())
 const LONG = "Paciente colaborativo, com boa interação durante toda a sessão de hoje."
@@ -105,7 +115,7 @@ describe("PRN — RBAC no adaptador", () => {
     expect(expected).not.toContain(MINE)
     const scoped = await api.clinicalRecords.patients()
     expect(scoped.map((row) => row.patient.id).sort()).toEqual(expected)
-    expect((await api.patients.list()).map((p) => p.id).sort()).toEqual(expected)
+    expect([...ownPatientIds(actor())].sort()).toEqual(expected)
   })
 
   it("papel profissional sem vínculo profissional não alcança paciente sem referência", async () => {
@@ -509,10 +519,6 @@ describe("DOC — RBAC, estados e liberação no adaptador", () => {
 describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", () => {
   const base = { patientId: MINE, title: "Termo de consentimento", type: "Termo", classification: "administrative" as const, clinicalRecordId: "", notes: "" }
   const linkOf = (patientId: string, guardianId: string) => getDB().links.find((l) => l.patientId === patientId && l.guardianId === guardianId)!
-  const guardianLink = (guardianId: string, over: Partial<ReturnType<typeof linkOf>> = {}) => {
-    const { id, patientId, ...rest } = linkOf(MINE, guardianId)
-    return { ...rest, restrictions: rest.restrictions ?? "", ...over }
-  }
   const issued = async (patientId = MINE, title = base.title) => {
     login("u-recepcao")
     const doc = await api.documents.create({ ...base, patientId, title })
@@ -520,11 +526,14 @@ describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", 
     return doc
   }
   const releasesOf = async (id: string) => (await api.documents.get(id)).doc.releases
+  // O vínculo agora é gravado na API, que também encerra as liberações; aqui vale a revogação dos documentos demo.
+  const revoke = (patientId: string, guardianId: string, reason = "Vínculo do responsável com o paciente removido") =>
+    revokeGuardianReleases(patientId, guardianId, reason, actor(), now())
 
-  it("desvincular revoga todas as liberações ativas do responsável e mantém o histórico", async () => {
+  it("revoga todas as liberações ativas do responsável e mantém o histórico", async () => {
     // O pai (gu-2) nasce sem autorização de documentos; autoriza-se para ter uma segunda liberação.
     login("u-recepcao")
-    await api.guardians.link(MINE, guardianLink("gu-2", { canReceiveDocuments: true }), linkOf(MINE, "gu-2").id)
+    linkOf(MINE, "gu-2").canReceiveDocuments = true
     const first = await issued(MINE, "Termo 1")
     const second = await issued(MINE, "Termo 2")
     for (const doc of [first, second]) {
@@ -532,7 +541,7 @@ describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", 
       await api.documents.release(doc.id, { guardianId: "gu-2" })
     }
 
-    await api.guardians.unlink(linkOf(MINE, "gu-1").id)
+    revoke(MINE, "gu-1")
 
     for (const doc of [first, second]) {
       const releases = await releasesOf(doc.id)
@@ -548,11 +557,12 @@ describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", 
     expect(guardianNames["gu-1"]).toBe(getDB().guardians.find((g) => g.id === "gu-1")!.fullName)
   })
 
-  it("retirar a autorização de receber documentos revoga a liberação, e não libera de novo", async () => {
+  it("sem autorização de receber documentos não há nova liberação depois da revogação", async () => {
     const doc = await issued()
     const release = await api.documents.release(doc.id, { guardianId: "gu-1" })
 
-    await api.guardians.link(MINE, guardianLink("gu-1", { canReceiveDocuments: false }), linkOf(MINE, "gu-1").id)
+    linkOf(MINE, "gu-1").canReceiveDocuments = false
+    revoke(MINE, "gu-1", "Autorização do responsável para receber documentos encerrada")
 
     const releases = await releasesOf(doc.id)
     expect(releases).toHaveLength(1)
@@ -562,25 +572,16 @@ describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", 
     await invalid(api.documents.release(doc.id, { guardianId: "gu-1" }), /não está autorizado/)
   })
 
-  it("trocar o responsável do vínculo também encerra as liberações do anterior", async () => {
-    const doc = await issued()
-    await api.documents.release(doc.id, { guardianId: "gu-1" })
-    await api.guardians.link(MINE, guardianLink("gu-1", { guardianId: "gu-3" }), linkOf(MINE, "gu-1").id)
-    expect(activeReleases({ releases: await releasesOf(doc.id) })).toEqual([])
-  })
-
-  it("manter o vínculo autorizado preserva a liberação, e outros pacientes do mesmo responsável não são afetados", async () => {
+  it("outros pacientes do mesmo responsável não são afetados", async () => {
     login("u-recepcao")
-    await api.guardians.link(OTHERS, { ...guardianLink("gu-1"), guardianId: "gu-1" })
+    const { id, ...otherLink } = linkOf(MINE, "gu-1")
+    getDB().links.push({ ...otherLink, id: "ln-outro", patientId: OTHERS })
     const mine = await issued(MINE, "Termo do paciente 1")
     const theirs = await issued(OTHERS, "Termo do paciente 2")
     await api.documents.release(mine.id, { guardianId: "gu-1" })
     await api.documents.release(theirs.id, { guardianId: "gu-1" })
 
-    await api.guardians.link(MINE, guardianLink("gu-1", { relationship: "Mãe (guarda)" }), linkOf(MINE, "gu-1").id)
-    expect(activeReleases({ releases: await releasesOf(mine.id) })).toHaveLength(1)
-
-    await api.guardians.unlink(linkOf(MINE, "gu-1").id)
+    revoke(MINE, "gu-1")
     expect(activeReleases({ releases: await releasesOf(mine.id) })).toEqual([])
     expect(activeReleases({ releases: await releasesOf(theirs.id) })).toHaveLength(1)
   })
@@ -588,7 +589,7 @@ describe("DOC — vínculo do responsável e liberações ativas (RN-DOC-009)", 
   it("a revogação automática é auditada sem dados do documento ou do responsável", async () => {
     const doc = await issued(MINE, "Termo com título sigiloso")
     await api.documents.release(doc.id, { guardianId: "gu-1" })
-    await api.guardians.unlink(linkOf(MINE, "gu-1").id)
+    revoke(MINE, "gu-1")
     const trail = getDB().audit.filter((e) => e.resource === "document_release" && e.action === "status_change")
     expect(trail).toHaveLength(1)
     expect(JSON.stringify(trail)).not.toContain("sigiloso")
@@ -621,7 +622,7 @@ describe("PRN — vínculo clínico por atendimento (RN-PRN-001)", () => {
     await forbidden(api.clinicalRecords.list(MINE))
     await forbidden(api.clinicalRecords.get(created.id))
     await forbidden(api.clinicalRecords.create(MINE, record()))
-    await forbidden(api.patients.get(MINE))
+    expect(readsPatient(MINE)).toBe(false)
     expect((await api.clinicalRecords.patients()).map((row) => row.patient.id)).not.toContain(MINE)
   })
 
@@ -631,7 +632,7 @@ describe("PRN — vínculo clínico por atendimento (RN-PRN-001)", () => {
     login("u-rafael")
     expect((await api.clinicalRecords.list(MINE)).map((r) => r.id)).toEqual([created.id])
     expect((await api.clinicalRecords.patients()).map((row) => row.patient.id)).toContain(MINE)
-    await expect(api.patients.get(MINE)).resolves.toMatchObject({ id: MINE })
+    expect(readsPatient(MINE)).toBe(true)
     login("u-camila")
     await forbidden(api.clinicalRecords.list(MINE))
   })
@@ -644,7 +645,7 @@ describe("PRN — vínculo clínico por atendimento (RN-PRN-001)", () => {
     await forbidden(api.clinicalRecords.list(MINE))
     await forbidden(api.clinicalRecords.get(created.id))
     await forbidden(api.clinicalRecords.create(MINE, record()))
-    await forbidden(api.patients.get(MINE))
+    expect(readsPatient(MINE)).toBe(false)
     await expect(api.clinicalRecords.patients()).resolves.toEqual([])
     helena.active = true
     await expect(api.clinicalRecords.list(MINE)).resolves.toHaveLength(1)
@@ -654,88 +655,6 @@ describe("PRN — vínculo clínico por atendimento (RN-PRN-001)", () => {
     await expect(api.clinicalRecords.list(MINE)).resolves.toHaveLength(1)
     getDB().professionals.find((p) => p.id === "pr-rafael")!.active = false
     await forbidden(api.clinicalRecords.list(MINE))
-  })
-})
-
-describe("AGD — criar e reagendar não escalam acesso clínico (RN-AGD-014/015)", () => {
-  const monday = () => clinicDateKey(addDays(startOfWeek(nowInClinic(), { weekStartsOn: 1 }), 7))
-  // OTHERS é paciente de referência do Rafael: a Helena só o alcança por atendimento confirmado.
-  const slot = (professionalId: string, over: Partial<AppointmentInput> = {}, start = "10:00", end = "10:50"): AppointmentInput => ({
-    kind: "appointment",
-    patientId: OTHERS,
-    serviceId: "sv-psi",
-    professionalId,
-    roomId: "rm-girassol",
-    start: clinicDateTimeToISO(monday(), start),
-    end: clinicDateTimeToISO(monday(), end),
-    ...over,
-  })
-  const asInput = (over: object) => over as unknown as Partial<AppointmentInput>
-
-  it.each(["requested", "pending"] as const)("agendamento %s criado pela recepção não dá acesso ao profissional", async (status) => {
-    login("u-recepcao")
-    await api.appointments.create(slot("pr-helena", { status }))
-    login("u-helena")
-    await forbidden(api.clinicalRecords.list(OTHERS))
-    await forbidden(api.patients.get(OTHERS))
-  })
-
-  it("agendamento confirmado cria o vínculo real", async () => {
-    login("u-rafael")
-    const note = await api.clinicalRecords.create(OTHERS, record())
-    login("u-recepcao")
-    await api.appointments.create(slot("pr-helena"))
-    login("u-helena")
-    await expect(api.patients.get(OTHERS)).resolves.toMatchObject({ id: OTHERS })
-    expect((await api.clinicalRecords.list(OTHERS)).map((r) => r.id)).toEqual([note.id])
-  })
-
-  it("recusa criar agendamento já em atendimento, concluído, cancelado ou falta", async () => {
-    login("u-recepcao")
-    for (const status of ["in_progress", "completed", "cancelled", "no_show"]) {
-      await invalid(api.appointments.create(slot("pr-helena", asInput({ status }))), /solicitado, pendente ou confirmado/)
-    }
-    expect(getDB().appointments).toEqual([])
-    login("u-helena")
-    await forbidden(api.clinicalRecords.list(OTHERS))
-  })
-
-  it("reagendar atendimento pendente para outro profissional não dá acesso", async () => {
-    login("u-recepcao")
-    const [pending] = await api.appointments.create(slot("pr-rafael", { status: "pending" }))
-    const moved = await api.appointments.reschedule(pending.id, slot("pr-helena"))
-    expect(moved).toMatchObject({ professionalId: "pr-helena", status: "pending" })
-    login("u-helena")
-    await forbidden(api.clinicalRecords.list(OTHERS))
-    await forbidden(api.patients.get(OTHERS))
-  })
-
-  it("reatribuir atendimento confirmado exige nova confirmação e não leva o vínculo junto", async () => {
-    login("u-recepcao")
-    const [confirmed] = await api.appointments.create(slot("pr-rafael"))
-    expect(confirmed.status).toBe("confirmed")
-    const moved = await api.appointments.reschedule(confirmed.id, slot("pr-helena"))
-    expect(moved.status).toBe("pending")
-    expect(getDB().audit.find((e) => e.resource === "appointment" && e.action === "update")?.changes?.status).toEqual({ from: "confirmed", to: "pending" })
-    login("u-helena")
-    await forbidden(api.clinicalRecords.list(OTHERS))
-
-    login("u-recepcao")
-    await api.appointments.changeStatus(confirmed.id, "confirmed")
-    login("u-helena")
-    await expect(api.patients.get(OTHERS)).resolves.toMatchObject({ id: OTHERS })
-  })
-
-  it("trocar só o horário mantém o status; atendimento em curso não troca de profissional", async () => {
-    login("u-recepcao")
-    const [appt] = await api.appointments.create(slot("pr-rafael"))
-    const later = await api.appointments.reschedule(appt.id, slot("pr-rafael", {}, "11:00", "11:50"))
-    expect(later.status).toBe("confirmed")
-
-    getDB().appointments.find((a) => a.id === appt.id)!.status = "in_progress"
-    await invalid(api.appointments.reschedule(appt.id, slot("pr-helena")), /em curso/)
-    await invalid(api.appointments.reschedule(appt.id, slot("pr-rafael", { patientId: MINE })), /em curso/)
-    await expect(api.appointments.reschedule(appt.id, slot("pr-rafael", {}, "09:00", "09:50"))).resolves.toMatchObject({ status: "in_progress" })
   })
 })
 
@@ -870,9 +789,9 @@ describe("CFG — auditoria sem PII clínica (RN-PRN-008, RN-DOC-007, RN-CFG-003
     login("u-gestor")
     // O gestor não tem acesso clínico nem a pacientes: só a auditoria.
     await forbidden(api.clinicalRecords.list(MINE))
-    await forbidden(api.patients.get(MINE))
+    expect(readsPatient(MINE)).toBe(false)
 
-    const entries = await api.audit.list()
+    const entries = auditList()
     const clinical = entries.filter((e) => CLINICAL_RESOURCES.includes(e.resource))
     expect(clinical.map((e) => e.resource).sort()).toEqual([...CLINICAL_RESOURCES].sort())
     const text = JSON.stringify(clinical)
@@ -883,7 +802,7 @@ describe("CFG — auditoria sem PII clínica (RN-PRN-008, RN-DOC-007, RN-CFG-003
     // Recursos não clínicos seguem como estão.
     expect(entries.find((e) => e.resource === "guardian")?.summary).toBe("Atualizou o responsável Fulano")
     // E o filtro por recurso continua valendo.
-    const onlyRecords = await api.audit.list({ resource: "clinical_record" })
+    const onlyRecords = auditList({ resource: "clinical_record" })
     expect(onlyRecords).toHaveLength(1)
     expect(JSON.stringify(onlyRecords)).not.toContain(TITLE)
     // A redação é só na leitura: o dado guardado não é alterado.
@@ -909,7 +828,7 @@ describe("CFG — auditoria sem PII clínica (RN-PRN-008, RN-DOC-007, RN-CFG-003
 
     getDB().users.push(manager)
     login("u-gestor")
-    const entries = (await api.audit.list()).filter((e) => CLINICAL_RESOURCES.includes(e.resource))
+    const entries = auditList().filter((e) => CLINICAL_RESOURCES.includes(e.resource))
     expect(new Set(entries.map((e) => e.resource))).toEqual(new Set(CLINICAL_RESOURCES))
     const stored = JSON.stringify(getDB().audit.filter((e) => CLINICAL_RESOURCES.includes(e.resource)))
     for (const leaked of [TITLE, SECRET, patientName()]) {
@@ -970,7 +889,7 @@ describe("CFG — auditoria sem PII clínica (RN-PRN-008, RN-DOC-007, RN-CFG-003
     // O gestor enxerga as leituras na auditoria, sem nada além do fato.
     getDB().users.push(manager)
     login("u-gestor")
-    const listed = (await api.audit.list()).filter((e) => e.action === "read")
+    const listed = auditList().filter((e) => e.action === "read")
     expect(listed).toHaveLength(before)
     expect(listed.every((e) => /^Consultou /.test(e.summary))).toBe(true)
   })
@@ -1000,7 +919,6 @@ describe("AUTH — restauração dos dados de demonstração (RF-AUTH-005, RN-AU
 
     await api.auth.resetDemo({ confirm: true })
     expect(getDB().financialEntries).toEqual([])
-    expect(getDB().audit.filter((e) => e.action === "reset")).toMatchObject([{ actorId: "u-admin", resource: "settings" }])
   })
 })
 
@@ -1048,7 +966,7 @@ describe("FIN — centavos, no schema e na regra de domínio (RN-FIN-001)", () =
     await api.financial.reversePayment(paid.id, { reason: "Pix devolvido ao pagador" })
 
     login("u-admin")
-    const trail = (await api.audit.list({ resource: "financial_entry" })).filter((e) => e.action === "update")
+    const trail = auditList({ resource: "financial_entry" }).filter((e) => e.action === "update")
     expect(trail).toHaveLength(2)
     const [latest, previous] = trail
     expect(Object.keys(previous.changes ?? {}).sort()).toEqual(["amountCents", "description", "dueDate"])
@@ -1056,7 +974,7 @@ describe("FIN — centavos, no schema e na regra de domínio (RN-FIN-001)", () =
     expect(previous.summary).toMatch(/LAN-0001/)
 
     // Só o texto e o diff (ids e horários aleatórios ficam de fora para o teste não oscilar).
-    const financial = (await api.audit.list()).filter((e) => e.resource.startsWith("financial"))
+    const financial = auditList().filter((e) => e.resource.startsWith("financial"))
     expect(financial).toHaveLength(5) // criação, 2 alterações, pagamento e estorno
     const text = JSON.stringify(financial.map((e) => [e.summary, e.changes]))
     for (const leaked of ["10000", "15050", "4025", "150.5", "150,50", "40.25", "40,25", "R$", "sigilosa", "2999-01-31"]) {

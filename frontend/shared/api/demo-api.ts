@@ -1,22 +1,13 @@
 import { addDays, endOfDay, startOfDay, startOfWeek } from "date-fns"
 
 import { canUserTransition, INACTIVE_STATUSES, STATUS_LABELS } from "@/domain/appointment-status"
-import { clinicDateTimeToISO, inClinic, nowInClinic, toMinutes } from "@/domain/clinic-time"
+import { clinicDateTimeToISO, nowInClinic, toMinutes } from "@/domain/clinic-time"
 import { findPossibleDuplicates } from "@/domain/duplicate-detection"
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/domain/errors"
-import { can, canReadAppointment, isScopedToOwnAgenda } from "@/domain/permissions"
-import { findConflicts, suggestNextSlot, type SlotCandidate } from "@/domain/scheduling"
+import { canReadAppointment, isScopedToOwnAgenda } from "@/domain/permissions"
+import { findConflicts, suggestNextSlot, type ConflictContext, type SlotCandidate } from "@/domain/scheduling"
 import {
-  EMPTY_ATTEMPTS,
-  isLocked,
-  registerFailure,
-  remainingLockMinutes,
-  type LoginAttemptState,
-} from "@/domain/login-lockout"
-import {
-  DEMO_PASSWORD,
   loginSchema,
-  type LoginInput,
   guardianLinkSchema,
   guardianSchema,
   patientSchema,
@@ -30,6 +21,7 @@ import {
   type AppointmentInput,
   type GuardianInput,
   type GuardianLinkInput,
+  type LoginInput,
   type PatientInput,
   type ProfessionalInput,
   type RoomInput,
@@ -38,79 +30,86 @@ import {
   type SpecialtyInput,
   type UnavailabilityInput,
 } from "@/domain/schemas"
-import type {
-  Appointment,
-  AppointmentStatus,
-  Patient,
-  PatientStatus,
-  WeeklySlot,
-} from "@/domain/types"
-import { commit, getDB, resetDB, simulateLatency, uid } from "@/shared/lib/demo-db"
+import type { Appointment, AppointmentStatus, Patient, PatientStatus, Professional, WeeklySlot } from "@/domain/types"
+import { resetDB, uid } from "@/shared/lib/demo-db"
+import { useSessionStore } from "@/shared/lib/session-store"
 
-import { abaApi, assessmentsApi, clinicalRecordsApi } from "./demo-clinical"
 import {
-  actor,
-  audit,
-  blankToUndefined,
-  canReadPatient,
-  diff,
-  now,
-  ownPatientIds,
-  parse,
-  redactClinicalAudit,
-  requirePermission,
-} from "./demo-context"
-import { documentsApi, revokeGuardianReleases } from "./demo-documents"
+  DEFAULT_SETTINGS,
+  fromAuditResource,
+  toAppointment,
+  toAuditEntry,
+  toGuardian,
+  toGuardianLink,
+  toPatient,
+  toProfessional,
+  toRoom,
+  toService,
+  toSettings,
+  toSpecialty,
+  toUser,
+  type Row,
+} from "./backend-mappers"
+import { abaApi, assessmentsApi, clinicalRecordsApi } from "./demo-clinical"
+import { actor, blankToUndefined, parse, requirePermission } from "./demo-context"
+import { documentsApi } from "./demo-documents"
 import { financialApi } from "./demo-financial"
+import { http } from "./http-client"
 
-const require = requirePermission
+// ---------------------------------------------------------------- helpers HTTP
+
+const seg = encodeURIComponent
+
+async function items(path: string, query?: Record<string, string | undefined>) {
+  const body = await http.get<{ items?: Row[] }>(path, { query })
+  return body.items ?? []
+}
+
+/** Perfis sem acesso a um recurso opcional recebem o valor neutro em vez de derrubar a tela inteira. */
+const whenForbidden =
+  <T>(fallback: T) =>
+  (error: unknown) => {
+    if (error instanceof ForbiddenError) return fallback
+    throw error
+  }
+
+const byName = <T extends { name: string }>(list: T[]) => [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+const statusOf = (active: boolean) => (active ? "active" : "inactive")
 
 // ---------------------------------------------------------------- auth
 
-const loginAttempts = new Map<string, LoginAttemptState>()
-
 const auth = {
+  /** Autentica na API e guarda a sessão (token + usuário) no store; devolve o usuário. */
   async signIn(input: LoginInput) {
-    await simulateLatency(350, 600)
     const parsed = loginSchema.safeParse(input)
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "Dados inválidos.")
-    const email = parsed.data.email
-    const ts = Date.now()
-    const attempts = loginAttempts.get(email) ?? EMPTY_ATTEMPTS
-    if (isLocked(attempts, ts)) {
-      throw new ValidationError(
-        `Muitas tentativas. Tente novamente em ${remainingLockMinutes(attempts, ts)} min.`
-      )
-    }
-    const user = getDB().users.find((u) => u.email.toLowerCase() === email)
-    if (!user || parsed.data.password !== DEMO_PASSWORD) {
-      const next = registerFailure(attempts, ts)
-      loginAttempts.set(email, next)
-      if (isLocked(next, ts)) {
-        throw new ValidationError(`Acesso bloqueado por ${remainingLockMinutes(next, ts)} min após muitas tentativas.`)
-      }
-      throw new ValidationError("E-mail ou senha incorretos.")
-    }
-    loginAttempts.delete(email)
+    const session = await http.post<{ user: Row; accessToken: string; expiresAt: string }>("/auth/login", {
+      body: parsed.data,
+      authenticated: false,
+    })
+    const user = toUser(session.user)
+    useSessionStore.getState().signIn({ user, accessToken: session.accessToken, expiresAt: session.expiresAt })
     return user
   },
-  async listDemoUsers() {
-    await simulateLatency(80, 160)
-    return getDB().users
-  },
+  /** Restaura a sessão a partir do token guardado; token inválido ou vencido encerra a sessão local. */
   async me() {
-    await simulateLatency(40, 80)
-    return actor()
+    const { user } = await http.get<{ user: Row }>("/auth/session")
+    const current = toUser(user)
+    useSessionStore.getState().setUser(current)
+    return current
   },
-  /** RF-AUTH-005: apaga todos os dados locais, então exige `settings:manage` e confirmação explícita (RN-AUTH-007). */
+  /** Encerra a sessão local na hora e revoga o token no servidor (falha de rede não impede a saída). */
+  async signOut() {
+    const { accessToken, signOut } = useSessionStore.getState()
+    signOut()
+    if (!accessToken) return
+    await http.post("/auth/logout", { token: accessToken }).catch(() => undefined)
+  },
+  /** RF-AUTH-005: restaura só os dados locais dos módulos demo (prontuário, avaliações, ABA, financeiro, documentos). */
   async resetDemo(input: { confirm: true }) {
-    await simulateLatency(80, 160)
-    const user = actor()
-    require(user, "settings:manage")
+    requirePermission(actor(), "settings:manage")
     if (input?.confirm !== true) throw new ValidationError("Confirme a restauração dos dados de demonstração.")
     resetDB()
-    audit(user, "reset", "settings", "clinic", "Restaurou os dados de demonstração")
-    commit()
   },
 }
 
@@ -121,16 +120,63 @@ export interface PatientFilters {
   status?: PatientStatus | "all"
 }
 
+const PATIENT_LIST_TTL_MS = 5_000
+let patientListCache: { token: string | null; at: number; promise: Promise<Patient[]> } | null = null
+
+/**
+ * A API só filtra por nome/CPF cru e o CPF é guardado com máscara, então busca, status e
+ * duplicidade rodam no cliente sobre a lista completa. Cache curto evita um GET por tecla digitada.
+ */
+function loadPatients(): Promise<Patient[]> {
+  const token = useSessionStore.getState().accessToken
+  if (patientListCache && patientListCache.token === token && Date.now() - patientListCache.at < PATIENT_LIST_TTL_MS) {
+    return patientListCache.promise
+  }
+  const promise = items("/patients").then((rows) => rows.map(toPatient))
+  const entry = { token, at: Date.now(), promise }
+  patientListCache = entry
+  promise.catch(() => {
+    if (patientListCache === entry) patientListCache = null
+  })
+  return promise
+}
+
+const invalidatePatients = () => {
+  patientListCache = null
+}
+
+async function getPatient(id: string) {
+  return toPatient(await http.get<Row>(`/patients/${seg(id)}`, { errors: { 404: "Paciente não encontrado." } }))
+}
+
+const digits = (value?: string) => value?.replace(/\D/g, "") ?? ""
+
+async function assertUniqueDocument(document: string | undefined, selfId?: string) {
+  const wanted = digits(document)
+  if (!wanted) return
+  const taken = (await loadPatients()).some((p) => p.id !== selfId && digits(p.document) === wanted)
+  if (taken) throw new ValidationError("Já existe um paciente com este CPF.")
+}
+
+/** `address` não existe na tabela `patients` da API, então não é enviado. */
+const patientBody = (d: PatientInput) => ({
+  fullName: d.fullName,
+  socialName: d.socialName,
+  birthDate: d.birthDate,
+  document: d.document,
+  phone: d.phone,
+  email: d.email,
+  status: d.status,
+  mainProfessionalId: d.mainProfessionalId,
+  consentData: d.consentData,
+  consentImage: d.consentImage,
+  administrativeNotes: d.administrativeNotes,
+})
+
 const patients = {
   async list(filters: PatientFilters = {}) {
-    await simulateLatency()
-    const user = actor()
-    if (!can(user, "patients:read") && !can(user, "patients:read-own")) throw new ForbiddenError()
-    const db = getDB()
-    const scope = can(user, "patients:read") ? null : ownPatientIds(user)
     const q = filters.search?.trim().toLowerCase()
-    return db.patients
-      .filter((p) => !scope || scope.has(p.id))
+    return (await loadPatients())
       .filter((p) => !filters.status || filters.status === "all" || p.status === filters.status)
       .filter(
         (p) =>
@@ -143,58 +189,39 @@ const patients = {
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"))
   },
 
-  async get(id: string) {
-    await simulateLatency()
-    const user = actor()
-    const patient = getDB().patients.find((p) => p.id === id)
-    if (!patient) throw new NotFoundError("Paciente não encontrado.")
-    if (!canReadPatient(user, id)) throw new ForbiddenError("Você não tem acesso a este paciente.")
-    return patient
-  },
+  get: getPatient,
 
   async checkDuplicates(input: { fullName: string; birthDate?: string; document?: string; id?: string }) {
-    const user = actor()
-    require(user, "patients:write")
-    return findPossibleDuplicates(input, getDB().patients)
+    return findPossibleDuplicates(input, await loadPatients())
   },
 
   async create(input: PatientInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "patients:write")
     const data = blankToUndefined(parse<PatientInput>(patientSchema, input))
-    const db = getDB()
-    if (data.document && db.patients.some((p) => p.document?.replace(/\D/g, "") === data.document?.replace(/\D/g, ""))) {
-      throw new ValidationError("Já existe um paciente com este CPF.")
-    }
-    db.counters.patient += 1
-    const patient: Patient = {
-      ...data,
-      id: uid("pa"),
-      code: `PAC-${String(db.counters.patient).padStart(4, "0")}`,
-      createdAt: now(),
-      updatedAt: now(),
-    }
-    db.patients.push(patient)
-    audit(user, "create", "patient", patient.id, `Cadastrou o paciente ${patient.fullName}`)
-    commit()
-    return patient
+    await assertUniqueDocument(data.document)
+    const body = patientBody(data)
+    const created = await http.post<Row>("/patients", { body })
+    invalidatePatients()
+    return toPatient({ ...body, ...created })
   },
 
   async update(id: string, input: PatientInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "patients:write")
-    const data = blankToUndefined(parse<PatientInput>(patientSchema, input))
-    const db = getDB()
-    const index = db.patients.findIndex((p) => p.id === id)
-    if (index < 0) throw new NotFoundError("Paciente não encontrado.")
-    const before = db.patients[index]
-    const after: Patient = { ...before, ...data, updatedAt: now() }
-    db.patients[index] = after
-    audit(user, "update", "patient", id, `Atualizou o cadastro de ${after.fullName}`, diff(before, after))
-    commit()
-    return after
+    const data = parse<PatientInput>(patientSchema, input)
+    await assertUniqueDocument(data.document, id)
+    // Campo ausente no PATCH é ignorado; para limpar é preciso enviar `null`.
+    await http.patch(`/patients/${seg(id)}`, {
+      body: {
+        ...patientBody(data),
+        socialName: data.socialName || null,
+        document: data.document || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        mainProfessionalId: data.mainProfessionalId || null,
+        administrativeNotes: data.administrativeNotes || null,
+      },
+      errors: { 404: "Paciente não encontrado." },
+    })
+    invalidatePatients()
+    return { ...(await getPatient(id)), updatedAt: new Date().toISOString() }
   },
 }
 
@@ -202,247 +229,170 @@ const patients = {
 
 const guardians = {
   async list(search?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "patients:read")
-    const db = getDB()
+    const [guardianRows, linkRows, allPatients] = await Promise.all([
+      items("/guardians"),
+      items("/patient-guardians"),
+      loadPatients(),
+    ])
+    const links = linkRows.map(toGuardianLink)
+    const patientById = new Map(allPatients.map((p) => [p.id, p]))
     const q = search?.trim().toLowerCase()
-    return db.guardians
+    return guardianRows
+      .map(toGuardian)
       .filter((g) => !q || g.fullName.toLowerCase().includes(q) || g.phone.includes(q))
-      .map((g) => ({
-        guardian: g,
-        patients: db.links
-          .filter((l) => l.guardianId === g.id)
-          .map((l) => ({ link: l, patient: db.patients.find((p) => p.id === l.patientId)! }))
+      .map((guardian) => ({
+        guardian,
+        patients: links
+          .filter((l) => l.guardianId === guardian.id)
+          .map((link) => ({ link, patient: patientById.get(link.patientId)! }))
           .filter((x) => x.patient),
       }))
       .sort((a, b) => a.guardian.fullName.localeCompare(b.guardian.fullName, "pt-BR"))
   },
 
   async create(input: GuardianInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "guardians:write")
     const data = blankToUndefined(parse<GuardianInput>(guardianSchema, input))
-    const guardian = { ...data, id: uid("gu"), createdAt: now() }
-    getDB().guardians.push(guardian)
-    audit(user, "create", "guardian", guardian.id, `Cadastrou o responsável ${guardian.fullName}`)
-    commit()
-    return guardian
+    return toGuardian(await http.post<Row>("/guardians", { body: data }))
   },
 
   async update(id: string, input: GuardianInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "guardians:write")
-    const data = blankToUndefined(parse<GuardianInput>(guardianSchema, input))
-    const db = getDB()
-    const index = db.guardians.findIndex((g) => g.id === id)
-    if (index < 0) throw new NotFoundError("Responsável não encontrado.")
-    const before = db.guardians[index]
-    const after = { ...before, ...data }
-    db.guardians[index] = after
-    audit(user, "update", "guardian", id, `Atualizou o responsável ${after.fullName}`, diff(before, after))
-    commit()
-    return after
+    const data = parse<GuardianInput>(guardianSchema, input)
+    try {
+      return toGuardian(
+        await http.patch<Row>(`/guardians/${seg(id)}`, {
+          body: { ...data, document: data.document || null, email: data.email || null },
+        })
+      )
+    } catch (error) {
+      // A API ainda não expõe PATCH /guardians/:id.
+      if (error instanceof NotFoundError) throw new NotFoundError("A edição de responsáveis ainda não está disponível na API.")
+      throw error
+    }
   },
 
   async forPatient(patientId: string) {
-    await simulateLatency()
-    const user = actor()
-    if (!canReadPatient(user, patientId)) throw new ForbiddenError()
-    const db = getDB()
-    return db.links
-      .filter((l) => l.patientId === patientId)
-      .map((link) => ({ link, guardian: db.guardians.find((g) => g.id === link.guardianId)! }))
+    const [linkRows, guardianRows] = await Promise.all([items("/patient-guardians", { patientId }), items("/guardians")])
+    const guardianById = new Map(guardianRows.map(toGuardian).map((g) => [g.id, g]))
+    return linkRows
+      .map(toGuardianLink)
+      .map((link) => ({ link, guardian: guardianById.get(link.guardianId)! }))
       .filter((x) => x.guardian)
       .sort((a, b) => Number(b.link.isPrimaryContact) - Number(a.link.isPrimaryContact))
   },
 
   async link(patientId: string, input: GuardianLinkInput, linkId?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "guardians:write")
     const data = parse<GuardianLinkInput>(guardianLinkSchema, input)
-    const db = getDB()
-    const patient = db.patients.find((p) => p.id === patientId)
-    const guardian = db.guardians.find((g) => g.id === data.guardianId)
-    if (!patient || !guardian) throw new NotFoundError("Paciente ou responsável não encontrado.")
-    if (!linkId && db.links.some((l) => l.patientId === patientId && l.guardianId === data.guardianId)) {
+    const links = (await items("/patient-guardians", { patientId })).map(toGuardianLink)
+    const existing = linkId ? links.find((l) => l.id === linkId) : undefined
+    if (linkId && !existing) throw new NotFoundError("Vínculo não encontrado.")
+    if (!linkId && links.some((l) => l.guardianId === data.guardianId)) {
       throw new ValidationError("Este responsável já está vinculado ao paciente.")
     }
+    // A API tem no máximo um contato principal por paciente: libera o atual antes de gravar o novo.
     if (data.isPrimaryContact) {
-      for (const l of db.links) if (l.patientId === patientId && l.id !== linkId) l.isPrimaryContact = false
-    }
-    const payload = { ...data, restrictions: data.restrictions || undefined }
-    if (linkId) {
-      const index = db.links.findIndex((l) => l.id === linkId)
-      if (index < 0) throw new NotFoundError("Vínculo não encontrado.")
-      const before = db.links[index]
-      db.links[index] = { ...before, ...payload }
-      audit(user, "update", "guardian_link", linkId, `Atualizou o vínculo de ${guardian.fullName} com ${patient.fullName}`, diff(before, db.links[index]))
-      // RN-DOC-009: trocar o responsável do vínculo ou retirar `canReceiveDocuments` encerra as liberações ativas.
-      if (db.links[index].guardianId !== before.guardianId || !db.links[index].canReceiveDocuments) {
-        revokeGuardianReleases(before.patientId, before.guardianId, "Autorização do responsável para receber documentos encerrada", user, now())
+      for (const other of links.filter((l) => l.isPrimaryContact && l.id !== linkId)) {
+        await http.patch(`/patient-guardians/${seg(other.id)}`, { body: { isPrimaryContact: false } })
       }
-    } else {
-      db.links.push({ ...payload, id: uid("ln"), patientId })
-      audit(user, "create", "guardian_link", patientId, `Vinculou ${guardian.fullName} a ${patient.fullName}`)
     }
-    commit()
+    const fields = {
+      relationship: data.relationship,
+      isLegalGuardian: data.isLegalGuardian,
+      canSchedule: data.canSchedule,
+      canReceiveDocuments: data.canReceiveDocuments,
+      isPrimaryContact: data.isPrimaryContact,
+    }
+    if (existing && existing.guardianId === data.guardianId) {
+      // `restrictions: ""` limpa o campo; `null` seria ignorado pelo COALESCE do PATCH.
+      await http.patch(`/patient-guardians/${seg(existing.id)}`, { body: { ...fields, restrictions: data.restrictions } })
+      return
+    }
+    // A API não troca o responsável de um vínculo: remove e recria (a remoção também encerra liberações ativas).
+    if (existing) await http.delete(`/patient-guardians/${seg(existing.id)}`)
+    await http.post("/patient-guardians", {
+      body: { ...fields, patientId, guardianId: data.guardianId, restrictions: data.restrictions || undefined },
+    })
   },
 
   async unlink(linkId: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "guardians:write")
-    const db = getDB()
-    const link = db.links.find((l) => l.id === linkId)
-    if (!link) throw new NotFoundError("Vínculo não encontrado.")
-    db.links = db.links.filter((l) => l.id !== linkId)
-    audit(user, "delete", "guardian_link", link.patientId, "Removeu vínculo de responsável")
-    // RN-DOC-009: sem vínculo não há liberação ativa; o histórico das liberações permanece.
-    revokeGuardianReleases(link.patientId, link.guardianId, "Vínculo do responsável com o paciente removido", user, now())
-    commit()
+    await http.delete(`/patient-guardians/${seg(linkId)}`, { errors: { 404: "Vínculo não encontrado." } })
   },
 }
 
 // ---------------------------------------------------------------- catalog
 
+/** Catálogo é payload JSON: cria com POST e atualiza com PATCH (merge raso), então o corpo vai sempre completo. */
+async function saveCatalogItem(path: string, body: object, id: string | undefined, notFound: string) {
+  if (id) return http.patch<Row>(`${path}/${seg(id)}`, { body, errors: { 404: notFound } })
+  return http.post<Row>(path, { body })
+}
+
 const specialties = {
   async list() {
-    await simulateLatency(100, 200)
-    actor()
-    return getDB().specialties
+    return byName((await items("/specialties")).map(toSpecialty))
   },
   async save(input: SpecialtyInput, id?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "services:manage")
     const data = parse<SpecialtyInput>(specialtySchema, input)
-    const db = getDB()
-    if (id) {
-      const index = db.specialties.findIndex((s) => s.id === id)
-      const before = db.specialties[index]
-      db.specialties[index] = { ...before, ...data, description: data.description || undefined }
-      audit(user, "update", "specialty", id, `Atualizou a especialidade ${data.name}`, diff(before, db.specialties[index]))
-    } else {
-      const created = { ...data, description: data.description || undefined, id: uid("sp") }
-      db.specialties.push(created)
-      audit(user, "create", "specialty", created.id, `Criou a especialidade ${data.name}`)
-    }
-    commit()
+    await saveCatalogItem("/specialties", { ...data, status: statusOf(data.active) }, id, "Especialidade não encontrada.")
   },
 }
 
 const services = {
   async list() {
-    await simulateLatency(100, 200)
-    actor()
-    return getDB().services
+    return byName((await items("/services")).map(toService))
   },
   async save(input: ServiceInput, id?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "services:manage")
     const data = parse<ServiceInput>(serviceSchema, input)
-    const db = getDB()
-    const record = {
+    const body = {
       name: data.name,
       specialtyId: data.specialtyId,
       durationMin: data.durationMin,
       referencePriceCents: Math.round(data.referencePrice * 100),
       requiresRoom: data.requiresRoom,
       active: data.active,
+      status: statusOf(data.active),
     }
-    if (id) {
-      const index = db.services.findIndex((s) => s.id === id)
-      const before = db.services[index]
-      db.services[index] = { ...before, ...record }
-      audit(user, "update", "service", id, `Atualizou o serviço ${data.name}`, diff(before, db.services[index]))
-    } else {
-      const created = { ...record, id: uid("sv") }
-      db.services.push(created)
-      audit(user, "create", "service", created.id, `Criou o serviço ${data.name}`)
-    }
-    commit()
+    await saveCatalogItem("/services", body, id, "Serviço não encontrado.")
   },
 }
 
 const rooms = {
   async list() {
-    await simulateLatency(100, 200)
-    actor()
-    return getDB().rooms
+    return byName((await items("/rooms")).map(toRoom))
   },
   async save(input: RoomInput, id?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "rooms:manage")
     const data = parse<RoomInput>(roomSchema, input)
-    const db = getDB()
-    const record = { ...data, notes: data.notes || undefined }
-    if (id) {
-      const index = db.rooms.findIndex((r) => r.id === id)
-      const before = db.rooms[index]
-      db.rooms[index] = { ...before, ...record }
-      audit(user, "update", "room", id, `Atualizou a sala ${data.name}`, diff(before, db.rooms[index]))
-    } else {
-      const created = { ...record, id: uid("rm") }
-      db.rooms.push(created)
-      audit(user, "create", "room", created.id, `Criou a sala ${data.name}`)
-    }
-    commit()
+    await saveCatalogItem("/rooms", { ...data, status: statusOf(data.active) }, id, "Sala não encontrada.")
   },
 }
 
 // ---------------------------------------------------------------- professionals
 
+async function listProfessionals() {
+  return byName((await items("/professionals")).map(toProfessional))
+}
+
+async function getProfessional(id: string) {
+  return toProfessional(await http.get<Row>(`/professionals/${seg(id)}`, { errors: { 404: "Profissional não encontrado." } }))
+}
+
 const professionals = {
-  async list() {
-    await simulateLatency(120, 240)
-    actor()
-    return getDB().professionals
-  },
-  async get(id: string) {
-    await simulateLatency()
-    actor()
-    const prof = getDB().professionals.find((p) => p.id === id)
-    if (!prof) throw new NotFoundError("Profissional não encontrado.")
-    return prof
-  },
-  async save(input: ProfessionalInput, id?: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "professionals:manage")
-    const data = blankToUndefined(parse<ProfessionalInput>(professionalSchema, input))
-    const db = getDB()
-    if (id) {
-      const index = db.professionals.findIndex((p) => p.id === id)
-      if (index < 0) throw new NotFoundError("Profissional não encontrado.")
-      const before = db.professionals[index]
-      db.professionals[index] = { ...before, ...data }
-      audit(user, "update", "professional", id, `Atualizou o profissional ${data.name}`, diff(before, db.professionals[index]))
-      commit()
-      return db.professionals[index]
-    }
-    const created = {
-      ...data,
-      id: uid("pr"),
-      colorIndex: db.professionals.length % 6,
-      schedule: [],
-      unavailabilities: [],
-      createdAt: now(),
-    }
-    db.professionals.push(created)
-    audit(user, "create", "professional", created.id, `Cadastrou o profissional ${data.name}`)
-    commit()
-    return created
+  list: listProfessionals,
+  get: getProfessional,
+  async save(input: ProfessionalInput, id?: string): Promise<Professional> {
+    const data = parse<ProfessionalInput>(professionalSchema, input)
+    const fields = { ...data, status: statusOf(data.active) }
+    if (id) return toProfessional(await saveCatalogItem("/professionals", fields, id, "Profissional não encontrado."))
+    const colorIndex = (await listProfessionals()).length % 6
+    return toProfessional(
+      await saveCatalogItem(
+        "/professionals",
+        { ...fields, colorIndex, schedule: [], unavailabilities: [], createdAt: new Date().toISOString() },
+        undefined,
+        ""
+      )
+    )
   },
   async setSchedule(id: string, schedule: WeeklySlot[]) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "professionals:manage")
     for (const slot of schedule) parse(weeklySlotSchema, slot)
     const byDay = new Map<number, WeeklySlot[]>()
     for (const s of schedule) byDay.set(s.weekday, [...(byDay.get(s.weekday) ?? []), s])
@@ -454,40 +404,42 @@ const professionals = {
         }
       }
     }
-    const db = getDB()
-    const prof = db.professionals.find((p) => p.id === id)
-    if (!prof) throw new NotFoundError("Profissional não encontrado.")
-    const before = prof.schedule
-    prof.schedule = schedule
-    audit(user, "update", "professional", id, `Atualizou a grade de ${prof.name}`, { schedule: { from: before, to: schedule } })
-    commit()
+    await http.put(`/professionals/${seg(id)}/schedule`, { body: { schedule }, errors: { 404: "Profissional não encontrado." } })
   },
   async addUnavailability(id: string, input: UnavailabilityInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "professionals:manage")
     const data = parse<UnavailabilityInput>(unavailabilitySchema, input)
-    const db = getDB()
-    const prof = db.professionals.find((p) => p.id === id)
-    if (!prof) throw new NotFoundError("Profissional não encontrado.")
-    prof.unavailabilities.push({
-      id: uid("un"),
-      start: clinicDateTimeToISO(data.date, data.startTime),
-      end: clinicDateTimeToISO(data.date, data.endTime),
-      reason: data.reason,
+    // A API só acrescenta a entrada como veio: o id é nosso, e é por ele que a remoção encontra o item.
+    await http.post(`/professionals/${seg(id)}/unavailabilities`, {
+      body: {
+        id: uid("un"),
+        start: clinicDateTimeToISO(data.date, data.startTime),
+        end: clinicDateTimeToISO(data.date, data.endTime),
+        reason: data.reason,
+      },
+      errors: { 404: "Profissional não encontrado." },
     })
-    audit(user, "create", "unavailability", id, `Registrou indisponibilidade de ${prof.name}: ${data.reason}`)
-    commit()
   },
   async removeUnavailability(id: string, unavailabilityId: string) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "professionals:manage")
-    const prof = getDB().professionals.find((p) => p.id === id)
-    if (!prof) throw new NotFoundError("Profissional não encontrado.")
-    prof.unavailabilities = prof.unavailabilities.filter((u) => u.id !== unavailabilityId)
-    audit(user, "delete", "unavailability", id, `Removeu indisponibilidade de ${prof.name}`)
-    commit()
+    await http.delete(`/professionals/${seg(id)}/unavailabilities/${seg(unavailabilityId)}`, {
+      errors: { 404: "Profissional não encontrado." },
+    })
+  },
+}
+
+// ---------------------------------------------------------------- settings
+
+async function fetchSettings() {
+  return toSettings(await http.get<Row>("/settings"))
+}
+
+const settings = {
+  /** A API só libera a leitura para `settings:manage`: os demais perfis usam os padrões da clínica. */
+  async get() {
+    return fetchSettings().catch(whenForbidden(DEFAULT_SETTINGS))
+  },
+  async update(input: SettingsInput) {
+    const data = parse<SettingsInput>(settingsSchema, input)
+    return toSettings(await http.put<Row>("/settings", { body: data }))
   },
 }
 
@@ -502,267 +454,264 @@ export interface AppointmentFilters {
   patientId?: string
 }
 
-function conflictContext(candidate: SlotCandidate, ignoreLeadTime = false) {
-  const db = getDB()
-  const professional = db.professionals.find((p) => p.id === candidate.professionalId)
-  if (!professional) throw new NotFoundError("Profissional não encontrado.")
-  return {
-    appointments: db.appointments,
-    professional,
-    room: db.rooms.find((r) => r.id === candidate.roomId),
-    settings: db.settings,
-    ignoreLeadTime,
-  }
+const HOUR_MS = 3_600_000
+const DAY_MS = 24 * HOUR_MS
+/** Mesmo horizonte de busca de `suggestNextSlot`. */
+const SUGGESTION_WINDOW_MS = 15 * DAY_MS
+
+async function fetchAppointments(query: Record<string, string | undefined>) {
+  return (await items("/appointments", query)).map((row) => toAppointment(row))
 }
 
-function validateAppointment(input: AppointmentInput) {
-  const db = getDB()
+async function getAppointment(id: string) {
+  return toAppointment(await http.get<Row>(`/appointments/${seg(id)}`, { errors: { 404: "Agendamento não encontrado." } }))
+}
+
+/** A API lista por início do atendimento: uma janela mais larga para trás pega quem começou antes e ainda sobrepõe. */
+function appointmentsAround(start: string, end: string, extraMs = 0) {
+  return fetchAppointments({
+    from: new Date(new Date(start).getTime() - 12 * HOUR_MS).toISOString(),
+    to: new Date(new Date(end).getTime() + extraMs).toISOString(),
+  })
+}
+
+type BaseContext = Omit<ConflictContext, "appointments" | "ignoreLeadTime">
+
+/**
+ * Contexto das regras de agenda (grade, horário da clínica, antecedência, sala exclusiva). A API só barra
+ * choque de horário, então as demais regras rodam aqui. Perfis que não leem catálogo/configurações
+ * (a API restringe essas rotas) seguem sem a pré-checagem e valem as respostas do servidor.
+ */
+async function loadBaseContext(professionalId: string, roomId?: string): Promise<BaseContext | null> {
+  const orNull = whenForbidden(null)
+  const [professional, room, clinic] = await Promise.all([
+    getProfessional(professionalId).catch(orNull),
+    roomId ? http.get<Row>(`/rooms/${seg(roomId)}`).then(toRoom).catch(orNull) : null,
+    fetchSettings().catch(orNull),
+  ])
+  if (!professional || !clinic) return null
+  return { professional, room: room ?? undefined, settings: clinic }
+}
+
+async function suggestionFor(candidate: SlotCandidate, base: BaseContext, ignoreLeadTime = false) {
+  const appointments = await appointmentsAround(candidate.start, candidate.end, SUGGESTION_WINDOW_MS)
+  return suggestNextSlot(candidate, { ...base, appointments, ignoreLeadTime })
+}
+
+function validateAppointmentFields(input: AppointmentInput) {
   if (input.kind === "appointment") {
     if (!input.patientId) throw new ValidationError("Selecione o paciente.")
     if (!input.serviceId) throw new ValidationError("Selecione o serviço.")
-    const patient = db.patients.find((p) => p.id === input.patientId)
-    if (!patient || patient.status !== "active") throw new ValidationError("Paciente inativo ou inexistente.")
-    const service = db.services.find((s) => s.id === input.serviceId)
-    if (!service || !service.active) throw new ValidationError("Serviço inativo ou inexistente.")
-    const prof = db.professionals.find((p) => p.id === input.professionalId)
-    if (prof && !prof.specialtyIds.includes(service.specialtyId)) {
-      throw new ValidationError(`${prof.name} não atende a especialidade deste serviço.`)
-    }
-    if (service.requiresRoom && !input.roomId) throw new ValidationError("Este serviço exige uma sala.")
   } else if (!input.title?.trim()) {
     throw new ValidationError("Informe o motivo do bloqueio.")
   }
 }
 
+async function validateAppointmentCatalog(input: AppointmentInput, base: BaseContext | null) {
+  if (input.kind !== "appointment") return
+  const patient = await getPatient(input.patientId!)
+  if (patient.status !== "active") throw new ValidationError("Paciente inativo ou inexistente.")
+  if (!base) return
+  const service = await http
+    .get<Row>(`/services/${seg(input.serviceId!)}`)
+    .then(toService)
+    .catch(whenForbidden(null))
+  if (!service) return
+  if (!service.active) throw new ValidationError("Serviço inativo ou inexistente.")
+  if (!base.professional.specialtyIds.includes(service.specialtyId)) {
+    throw new ValidationError(`${base.professional.name} não atende a especialidade deste serviço.`)
+  }
+  if (service.requiresRoom && !input.roomId) throw new ValidationError("Este serviço exige uma sala.")
+}
+
 /** RN-AGD-014: o atendimento nasce antes de acontecer; "em atendimento" e "concluído" só chegam pela máquina de estados. */
 const NEW_APPOINTMENT_STATUSES: AppointmentStatus[] = ["requested", "pending", "confirmed"]
 
-function describeAppointment(a: Pick<Appointment, "kind" | "patientId" | "title" | "start">) {
-  const db = getDB()
-  const when = inClinic(a.start).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-  if (a.kind === "block") return `bloqueio "${a.title}" em ${when}`
-  const patient = db.patients.find((p) => p.id === a.patientId)
-  return `atendimento de ${patient?.fullName ?? "paciente"} em ${when}`
-}
-
 const appointments = {
   async list(filters: AppointmentFilters) {
-    await simulateLatency()
-    const user = actor()
-    if (!can(user, "appointments:read") && !can(user, "appointments:read-own")) throw new ForbiddenError()
-    const from = new Date(filters.from).getTime()
-    const to = new Date(filters.to).getTime()
-    return getDB()
-      .appointments.filter((a) => canReadAppointment(user, a))
-      .filter((a) => new Date(a.start).getTime() < to && new Date(a.end).getTime() > from)
-      .filter((a) => !filters.professionalIds?.length || filters.professionalIds.includes(a.professionalId))
+    const { professionalIds, status } = filters
+    // A API filtra por um profissional e um status; várias seleções são refinadas aqui.
+    const rows = await fetchAppointments({
+      from: filters.from,
+      to: filters.to,
+      professionalId: professionalIds?.length === 1 ? professionalIds[0] : undefined,
+      status: status?.length === 1 ? status[0] : undefined,
+      patientId: filters.patientId,
+    })
+    return rows
+      .filter((a) => !professionalIds?.length || professionalIds.includes(a.professionalId))
       .filter((a) => !filters.roomId || a.roomId === filters.roomId)
-      .filter((a) => !filters.status?.length || filters.status.includes(a.status))
-      .filter((a) => !filters.patientId || a.patientId === filters.patientId)
+      .filter((a) => !status?.length || status.includes(a.status))
       .sort((a, b) => a.start.localeCompare(b.start))
   },
 
   async forPatient(patientId: string) {
-    await simulateLatency()
-    const user = actor()
-    if (!canReadPatient(user, patientId)) throw new ForbiddenError()
-    return getDB()
-      .appointments.filter((a) => a.patientId === patientId && canReadAppointment(user, a))
-      .sort((a, b) => b.start.localeCompare(a.start))
+    const rows = await items(`/patients/${seg(patientId)}/appointments`)
+    return rows.map((row) => toAppointment(row, { patientId })).sort((a, b) => b.start.localeCompare(a.start))
   },
 
   async check(candidate: SlotCandidate) {
-    const ctx = conflictContext(candidate)
-    const conflicts = findConflicts(candidate, ctx)
-    return {
-      conflicts,
-      suggestion: conflicts.length ? suggestNextSlot(candidate, ctx) : undefined,
-    }
+    const base = await loadBaseContext(candidate.professionalId, candidate.roomId)
+    if (!base) return { conflicts: [], suggestion: undefined }
+    const conflicts = findConflicts(candidate, { ...base, appointments: await appointmentsAround(candidate.start, candidate.end) })
+    return { conflicts, suggestion: conflicts.length ? await suggestionFor(candidate, base) : undefined }
   },
 
   async create(input: AppointmentInput) {
-    await simulateLatency()
     const user = actor()
-    require(user, "appointments:write")
-    validateAppointment(input)
+    validateAppointmentFields(input)
     const status: AppointmentStatus = input.kind === "block" ? "confirmed" : (input.status ?? "confirmed")
     if (!NEW_APPOINTMENT_STATUSES.includes(status)) {
       throw new ValidationError("Um novo agendamento só pode ser solicitado, pendente ou confirmado.")
     }
-    const db = getDB()
     const weeks = Math.max(1, Math.min(input.recurrenceWeeks ?? 1, 12))
-    const groupId = weeks > 1 ? uid("rec") : undefined
-    const created: Appointment[] = []
+    const slots = Array.from({ length: weeks }, (_, i) => ({
+      start: new Date(new Date(input.start).getTime() + i * 7 * DAY_MS).toISOString(),
+      end: new Date(new Date(input.end).getTime() + i * 7 * DAY_MS).toISOString(),
+    }))
 
-    for (let i = 0; i < weeks; i++) {
-      const offset = i * 7 * 24 * 3600_000
-      const start = new Date(new Date(input.start).getTime() + offset).toISOString()
-      const end = new Date(new Date(input.end).getTime() + offset).toISOString()
-      const candidate = { professionalId: input.professionalId, roomId: input.roomId, start, end }
-      const ctx = conflictContext(candidate)
-      const conflicts = findConflicts(candidate, { ...ctx, appointments: [...db.appointments, ...created] })
-      if (conflicts.length) {
-        const label = weeks > 1 ? ` (ocorrência ${i + 1} de ${weeks})` : ""
-        throw new ConflictError(`Não foi possível agendar${label}.`, conflicts, i === 0 ? suggestNextSlot(candidate, ctx) : undefined)
+    const base = await loadBaseContext(input.professionalId, input.roomId)
+    await validateAppointmentCatalog(input, base)
+
+    // A API não tem recorrência: valida todas as ocorrências antes de gravar a primeira.
+    if (base) {
+      const planned: Appointment[] = []
+      for (const [i, slot] of slots.entries()) {
+        const candidate = { professionalId: input.professionalId, roomId: input.roomId, ...slot }
+        const existing = await appointmentsAround(slot.start, slot.end)
+        const conflicts = findConflicts(candidate, { ...base, appointments: [...existing, ...planned] })
+        if (conflicts.length) {
+          const label = weeks > 1 ? ` (ocorrência ${i + 1} de ${weeks})` : ""
+          throw new ConflictError(`Não foi possível agendar${label}.`, conflicts, i === 0 ? await suggestionFor(candidate, base) : undefined)
+        }
+        planned.push({ id: `planned-${i}`, kind: input.kind, professionalId: input.professionalId, roomId: input.roomId, status, createdBy: user.id, createdAt: "", updatedAt: "", ...slot })
       }
-      created.push({
-        id: uid("ap"),
+    }
+
+    const created: Appointment[] = []
+    for (const [i, slot] of slots.entries()) {
+      const draft = {
         kind: input.kind,
         title: input.kind === "block" ? input.title?.trim() : undefined,
         patientId: input.kind === "appointment" ? input.patientId : undefined,
         serviceId: input.kind === "appointment" ? input.serviceId : undefined,
         professionalId: input.professionalId,
         roomId: input.roomId || undefined,
-        start,
-        end,
         status,
         notes: input.notes?.trim() || undefined,
-        recurrenceGroupId: groupId,
-        createdBy: user.id,
-        createdAt: now(),
-        updatedAt: now(),
-      })
+        ...slot,
+      }
+      try {
+        const row = await http.post<Row>("/appointments", {
+          body: draft,
+          errors: { 409: "Não foi possível agendar: horário já ocupado ou paciente inativo." },
+        })
+        created.push(toAppointment(row, { ...draft, createdBy: user.id }))
+      } catch (error) {
+        if (error instanceof ConflictError && created.length) {
+          throw new ConflictError(
+            `Não foi possível agendar a ocorrência ${i + 1} de ${weeks}; ${created.length} anterior(es) já foi(ram) criada(s).`,
+            error.conflicts
+          )
+        }
+        throw error
+      }
     }
-
-    db.appointments.push(...created)
-    const suffix = weeks > 1 ? ` (${weeks} ocorrências semanais)` : ""
-    audit(user, "create", "appointment", created[0].id, `Agendou ${describeAppointment(created[0])}${suffix}`)
-    commit()
     return created
   },
 
+  /** A API só altera horário, profissional e paciente: serviço, sala e observações não são regravados. */
   async reschedule(id: string, input: AppointmentInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "appointments:write")
-    validateAppointment(input)
-    const db = getDB()
-    const index = db.appointments.findIndex((a) => a.id === id)
-    if (index < 0) throw new NotFoundError("Agendamento não encontrado.")
-    const before = db.appointments[index]
+    validateAppointmentFields(input)
+    const before = await getAppointment(id)
     if (INACTIVE_STATUSES.includes(before.status) || before.status === "completed") {
       throw new ValidationError("Agendamentos encerrados não podem ser alterados.")
     }
     const candidate = { id, professionalId: input.professionalId, roomId: input.roomId, start: input.start, end: input.end }
-    const ctx = conflictContext(candidate)
-    const conflicts = findConflicts(candidate, ctx)
-    if (conflicts.length) throw new ConflictError("Não foi possível reagendar.", conflicts, suggestNextSlot(candidate, ctx))
+    const base = await loadBaseContext(input.professionalId, input.roomId)
+    if (base) {
+      const conflicts = findConflicts(candidate, { ...base, appointments: await appointmentsAround(input.start, input.end) })
+      if (conflicts.length) throw new ConflictError("Não foi possível reagendar.", conflicts, await suggestionFor(candidate, base))
+    }
     const patientId = input.kind === "appointment" ? input.patientId : undefined
-    // RN-AGD-015: trocar paciente ou profissional não leva o vínculo clínico junto — exige nova confirmação.
+    // RN-AGD-015: trocar paciente ou profissional não leva o vínculo clínico junto — a API volta o confirmado para pendente.
     const reassigned = before.kind === "appointment" && (patientId !== before.patientId || input.professionalId !== before.professionalId)
     if (reassigned && before.status === "in_progress") {
       throw new ValidationError("Atendimento em curso não pode mudar de paciente ou profissional.")
     }
-    const after: Appointment = {
-      ...before,
-      title: input.kind === "block" ? input.title?.trim() : undefined,
-      patientId,
-      serviceId: input.kind === "appointment" ? input.serviceId : undefined,
-      professionalId: input.professionalId,
-      roomId: input.roomId || undefined,
-      start: input.start,
-      end: input.end,
-      status: reassigned && before.status === "confirmed" ? "pending" : before.status,
-      notes: input.notes?.trim() || undefined,
-      updatedAt: now(),
-    }
-    db.appointments[index] = after
-    audit(user, "update", "appointment", id, `Alterou ${describeAppointment(after)}`, diff(before, after))
-    commit()
-    return after
+    await http.patch(`/appointments/${seg(id)}`, {
+      body: { start: input.start, end: input.end, professionalId: input.professionalId, patientId },
+      errors: { 409: "Não foi possível reagendar: horário já ocupado ou atendimento encerrado." },
+    })
+    return getAppointment(id)
   },
 
+  /** O motivo do cancelamento não é gravado pela API; volta só no retorno desta chamada. */
   async changeStatus(id: string, to: AppointmentStatus, reason?: string) {
-    await simulateLatency()
     const user = actor()
-    const db = getDB()
-    const appt = db.appointments.find((a) => a.id === id)
-    if (!appt) throw new NotFoundError("Agendamento não encontrado.")
-    if (!canUserTransition(user, appt, to)) {
-      throw new ForbiddenError(`Não é possível mudar de "${STATUS_LABELS[appt.status]}" para "${STATUS_LABELS[to]}".`)
+    const current = await getAppointment(id)
+    if (!canUserTransition(user, current, to)) {
+      throw new ForbiddenError(`Não é possível mudar de "${STATUS_LABELS[current.status]}" para "${STATUS_LABELS[to]}".`)
     }
-    if (to === "cancelled" && db.settings.requireCancelReason && !reason?.trim()) {
+    if (to === "cancelled" && !reason?.trim() && (await settings.get()).requireCancelReason) {
       throw new ValidationError("Informe o motivo do cancelamento.")
     }
-    const from = appt.status
-    appt.status = to
-    appt.updatedAt = now()
-    if (to === "cancelled") {
-      appt.cancelReason = reason?.trim()
-      appt.cancelledBy = user.id
-      appt.cancelledAt = now()
-    }
-    audit(
-      user,
-      "status_change",
-      "appointment",
-      id,
-      `${STATUS_LABELS[to]}: ${describeAppointment(appt)}${reason ? ` — ${reason}` : ""}`,
-      { status: { from, to } }
-    )
-    commit()
-    return appt
+    await http.post(`/appointments/${seg(id)}/status`, {
+      body: { status: to },
+      errors: { 422: `Não é possível mudar de "${STATUS_LABELS[current.status]}" para "${STATUS_LABELS[to]}".` },
+    })
+    const after = await getAppointment(id)
+    if (to !== "cancelled") return after
+    return { ...after, cancelReason: reason?.trim() || undefined, cancelledBy: user.id, cancelledAt: new Date().toISOString() }
   },
 }
 
-// ---------------------------------------------------------------- settings / audit / dashboard
-
-const settings = {
-  async get() {
-    await simulateLatency(100, 200)
-    actor()
-    return getDB().settings
-  },
-  async update(input: SettingsInput) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "settings:manage")
-    const data = parse<SettingsInput>(settingsSchema, input)
-    const db = getDB()
-    const before = db.settings
-    db.settings = data
-    audit(user, "update", "settings", "clinic", "Atualizou as configurações da clínica", diff(before, data))
-    commit()
-    return data
-  },
-}
+// ---------------------------------------------------------------- audit / dashboard
 
 const auditLog = {
   async list(filters: { resource?: string; actorId?: string } = {}) {
-    await simulateLatency()
-    const user = actor()
-    require(user, "audit:read")
-    return getDB()
-      .audit.filter((e) => !filters.resource || filters.resource === "all" || e.resource === filters.resource)
-      .filter((e) => !filters.actorId || filters.actorId === "all" || e.actorId === filters.actorId)
-      .map(redactClinicalAudit)
+    const me = useSessionStore.getState().user
+    const rows = await items("/audit", {
+      resource: filters.resource && filters.resource !== "all" ? fromAuditResource(filters.resource) : undefined,
+      actorId: filters.actorId && filters.actorId !== "all" ? filters.actorId : undefined,
+    })
+    return rows.map((row, index) => toAuditEntry(row, index, (actorId) => (me?.id === actorId ? me.name : actorId)))
   },
 }
 
+/**
+ * O resumo da API (`/dashboard/summary`) é por período e tem outro formato, então o painel é montado
+ * aqui com a agenda da semana, os pacientes e a grade dos profissionais.
+ */
 const dashboard = {
   async summary() {
-    await simulateLatency()
     const user = actor()
-    const db = getDB()
     const scoped = isScopedToOwnAgenda(user)
-    const visible = db.appointments.filter(
-      (a) => a.kind === "appointment" && canReadAppointment(user, a)
-    )
 
     const today = nowInClinic()
     const dayStart = startOfDay(today).getTime()
     const dayEnd = endOfDay(today).getTime()
     const weekStart = startOfWeek(today, { weekStartsOn: 1 })
     const weekEnd = addDays(weekStart, 7).getTime()
+
+    const [fetched, allPatients, allProfessionals] = await Promise.all([
+      fetchAppointments({
+        from: new Date(weekStart.getTime()).toISOString(),
+        to: new Date(Math.max(weekEnd, Date.now() + 14 * DAY_MS)).toISOString(),
+      }),
+      loadPatients().catch(whenForbidden([] as Patient[])),
+      listProfessionals().catch(whenForbidden([] as Professional[])),
+    ])
+
+    const visible = fetched.filter((a) => a.kind === "appointment" && canReadAppointment(user, a))
     const inRange = (a: Appointment, from: number, to: number) => {
       const t = new Date(a.start).getTime()
       return t >= from && t < to
     }
-
     const todays = visible.filter((a) => inRange(a, dayStart, dayEnd))
     const week = visible.filter((a) => inRange(a, weekStart.getTime(), weekEnd))
 
-    const profs = scoped ? db.professionals.filter((p) => p.id === user.professionalId) : db.professionals.filter((p) => p.active)
+    const profs = scoped ? allProfessionals.filter((p) => p.id === user.professionalId) : allProfessionals.filter((p) => p.active)
     const occupancy = profs.map((p) => {
       const capacity = p.schedule.reduce((sum, s) => sum + toMinutes(s.end) - toMinutes(s.start), 0)
       const booked = week
@@ -791,7 +740,8 @@ const dashboard = {
         noShow: week.filter((a) => a.status === "no_show").length,
         awaiting: week.filter((a) => a.status === "requested" || a.status === "pending").length,
       },
-      activePatients: scoped ? ownPatientIds(user).size : db.patients.filter((p) => p.status === "active").length,
+      // A API já devolve só os pacientes do profissional; os demais perfis contam os ativos.
+      activePatients: scoped ? allPatients.length : allPatients.filter((p) => p.status === "active").length,
       occupancy,
       upcoming,
     }

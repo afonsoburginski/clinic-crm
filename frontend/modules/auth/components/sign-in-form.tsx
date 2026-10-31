@@ -10,7 +10,6 @@ import { useForm } from "react-hook-form"
 import { HaloButton } from "@/components/ui/halo-button"
 import { DEMO_PASSWORD, loginSchema, type LoginInput } from "@/domain/schemas"
 import { api } from "@/shared/api/demo-api"
-import { useSessionStore } from "@/shared/lib/session-store"
 import { Input } from "@/shared/ui/atoms/text-input"
 import { FormField } from "@/shared/ui/molecules/form-field"
 
@@ -23,7 +22,6 @@ const DEMO_ACCOUNTS = [
 export function SignInForm() {
   const router = useRouter()
   const client = useQueryClient()
-  const signIn = useSessionStore((s) => s.signIn)
   const [showPassword, setShowPassword] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -40,9 +38,8 @@ export function SignInForm() {
   async function onSubmit(values: LoginInput) {
     setFormError(null)
     try {
-      const user = await api.auth.signIn(values)
+      await api.auth.signIn(values)
       client.clear()
-      signIn(user.id)
       router.replace("/painel")
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Não foi possível entrar.")

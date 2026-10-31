@@ -1,19 +1,49 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
+import type { User } from "@/domain/types"
+
+export interface Session {
+  user: User
+  accessToken: string
+  expiresAt: string
+}
+
 interface SessionState {
   userId: string | null
-  signIn: (userId: string) => void
+  /** Snapshot do usuário da sessão: permite resolver permissões de forma síncrona (adaptadores demo). */
+  user: User | null
+  accessToken: string | null
+  expiresAt: string | null
+  signIn: (session: Session) => void
+  setUser: (user: User) => void
   signOut: () => void
+}
+
+const SIGNED_OUT = { userId: null, user: null, accessToken: null, expiresAt: null }
+
+export function isSessionExpired(expiresAt: string | null) {
+  return !expiresAt || Date.parse(expiresAt) <= Date.now()
+}
+
+/** Sessão utilizável: tem token e ele ainda não venceu. */
+export function hasActiveSession(state: Pick<SessionState, "accessToken" | "expiresAt">) {
+  return !!state.accessToken && !isSessionExpired(state.expiresAt)
 }
 
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
-      userId: null,
-      signIn: (userId) => set({ userId }),
-      signOut: () => set({ userId: null }),
+      ...SIGNED_OUT,
+      signIn: ({ user, accessToken, expiresAt }) => set({ userId: user.id, user, accessToken, expiresAt }),
+      setUser: (user) => set({ userId: user.id, user }),
+      signOut: () => set(SIGNED_OUT),
     }),
-    { name: "clinica-demo-session" }
+    {
+      name: "clinica-demo-session",
+      // v1 guardava só o `userId` da sessão demo: sem token não há sessão real, então volta deslogado.
+      version: 2,
+      migrate: () => SIGNED_OUT,
+    }
   )
 )

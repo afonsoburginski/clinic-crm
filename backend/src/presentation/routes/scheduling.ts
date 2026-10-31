@@ -18,6 +18,9 @@ export function createSchedulingRouter(repository: SchedulingRepository, transit
     const body: AppointmentData = await c.req.json()
     return c.json(await scheduling.create(clinic()!, { ...body, actorId: c.get("auth").userId }), 201)
   }))
+  // Must be registered before "/api/v1/appointments/:id" — Hono matches routes in order and
+  // "suggestions" would otherwise be swallowed as the :id param, making this route dead code.
+  app.get("/api/v1/appointments/suggestions", run(async (c) => c.json({ items: await scheduling.suggestions(clinic()!, c.req.query("start"), c.req.query("duration"), c.req.query("professionalId"), c.req.query("roomId")) })))
   app.get("/api/v1/appointments/:id", run(async (c) => {
     const user = c.get("auth").user
     const own = user.roles.includes("professional") && !hasPermission(user, "appointments:read") ? user.professionalId : undefined
@@ -33,6 +36,5 @@ export function createSchedulingRouter(repository: SchedulingRepository, transit
     return c.json(await transitionAppointment(transitionRepository, clinic()!, c.req.param("id"), body.status))
   }))
   app.get("/api/v1/patients/:id/appointments", run(async (c) => c.json({ items: await scheduling.listForPatient(clinic()!, c.req.param("id")) })))
-  app.get("/api/v1/appointments/suggestions", run(async (c) => c.json({ items: await scheduling.suggestions(clinic()!, c.req.query("start"), c.req.query("duration"), c.req.query("professionalId"), c.req.query("roomId")) })))
   return app
 }

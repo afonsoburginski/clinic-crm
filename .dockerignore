@@ -1,8 +1,9 @@
 **/node_modules
 **/.git
 **/*.md
-frontend
 backend/test
 backend/specs
+frontend/.next
+frontend/node_modules
 .ai
 *.log

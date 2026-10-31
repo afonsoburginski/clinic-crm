@@ -106,7 +106,7 @@ function PatientSummary({ patient }: { patient: Patient }) {
             <InfoItem label="Endereço">{patient.address}</InfoItem>
           </div>
           <InfoItem label="Profissional de referência">{pro?.name}</InfoItem>
-          <InfoItem label="Cadastrado em">{formatDate(patient.createdAt)}</InfoItem>
+          <InfoItem label="Cadastrado em">{patient.createdAt ? formatDate(patient.createdAt) : "—"}</InfoItem>
         </dl>
       </SectionCard>
       <div className="flex flex-col gap-6">

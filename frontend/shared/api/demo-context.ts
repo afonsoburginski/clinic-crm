@@ -6,9 +6,10 @@ import { useSessionStore } from "@/shared/lib/session-store"
 
 /** Helpers comuns dos adaptadores demo (`demo-api.ts`, `demo-clinical.ts`, …). */
 
+/** Usuário da sessão real (snapshot da API); sem ele, cai nos usuários do seed demo. */
 export function actor(): User {
-  const userId = useSessionStore.getState().userId
-  const user = getDB().users.find((u) => u.id === userId)
+  const { userId, user: sessionUser } = useSessionStore.getState()
+  const user = sessionUser ?? getDB().users.find((u) => u.id === userId)
   if (!user) throw new ForbiddenError("Sua sessão expirou. Entre novamente.")
   return user
 }
