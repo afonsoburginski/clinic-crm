@@ -29,6 +29,7 @@ export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { key: "assessments:interpret", label: "Interpretar avaliações", group: "Clínico" },
   { key: "finance:read", label: "Ver o financeiro", group: "Financeiro" },
   { key: "finance:write", label: "Lançar, baixar e estornar no financeiro", group: "Financeiro" },
+  { key: "finance:export", label: "Exportar o financeiro (XLSX)", group: "Financeiro" },
   { key: "documents:read", label: "Ver documentos", group: "Documentos" },
   { key: "settings:manage", label: "Gerir as configurações da clínica", group: "Administração" },
   { key: "audit:read", label: "Ver a auditoria", group: "Administração" },
@@ -67,7 +68,8 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     permissions: [
       "dashboard:read", "patients:read", "patients:write", "guardians:write", "appointments:read",
       "appointments:write", "appointments:cancel", "professionals:manage", "services:manage", "rooms:manage",
-      "settings:manage", "audit:read", "finance:read", "team:invite", "documents:read", "users:read", "users:manage",
+      "settings:manage", "audit:read", "finance:read", "finance:export", "team:invite", "documents:read", "users:read",
+      "users:manage",
     ],
   },
   {
@@ -93,7 +95,8 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     label: "Financeiro",
     description: "Lançamentos, pagamentos e relatórios financeiros.",
     permissions: [
-      "dashboard:read", "patients:read", "appointments:read", "finance:read", "finance:write", "documents:read",
+      "dashboard:read", "patients:read", "appointments:read", "finance:read", "finance:write", "finance:export",
+      "documents:read",
     ],
   },
   {

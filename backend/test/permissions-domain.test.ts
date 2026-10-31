@@ -26,10 +26,14 @@ describe("default roles", () => {
     expect(admin.permissions.some(isClinicalPermission)).toBe(false)
   })
 
-  test("migration 006 seeds exactly the permission catalog", () => {
-    const sql = readFileSync(new URL("../migrations/006_users_roles_permissions.sql", import.meta.url), "utf8")
+  test("migrations 006 and 008 seed exactly the permission catalog", () => {
+    const sql = ["006_users_roles_permissions.sql", "008_finance_export.sql"]
+      .map((file) => readFileSync(new URL(`../migrations/${file}`, import.meta.url), "utf8"))
+      .join("\n")
     const seeded = [...sql.matchAll(/^\s*\('([a-z-]+:[a-z-]+)', '([^']+)', '([^']+)'\)/gm)].map((m) => [m[1], m[2], m[3]])
-    expect(seeded).toEqual(PERMISSION_CATALOG.map((p) => [p.key, p.label, p.group]))
+    // 008 adds `finance:export` after the original 24, so the file order differs from the catalog order: compare by key.
+    const byKey = (a: string[], b: string[]) => a[0].localeCompare(b[0])
+    expect([...seeded].sort(byKey)).toEqual(PERMISSION_CATALOG.map((p) => [p.key, p.label, p.group]).sort(byKey))
   })
 })
 

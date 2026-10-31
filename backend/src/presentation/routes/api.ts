@@ -10,6 +10,7 @@ import { clinical_recordsRouter } from "@/presentation/routes/clinical-records";
 import { assessmentsRouter } from "@/presentation/routes/assessments";
 import { abaRouter } from "@/presentation/routes/aba";
 import { financialRouter } from "@/presentation/routes/financial";
+import { financialReportRouter } from "@/presentation/routes/financial-report";
 import { documentsRouter } from "@/presentation/routes/documents";
 import { dashboardRouter } from "@/presentation/routes/dashboard";
 import { usersRouter } from "@/presentation/routes/users";
@@ -22,6 +23,8 @@ app.route("/", catalogRouter);
 app.route("/", clinical_recordsRouter);
 app.route("/", assessmentsRouter);
 app.route("/", abaRouter);
+// The report router first: `/financial/entries/search` must not be read as `/financial/entries/:id`.
+app.route("/", financialReportRouter);
 app.route("/", financialRouter);
 app.route("/", documentsRouter);
 app.route("/", dashboardRouter);

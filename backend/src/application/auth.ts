@@ -140,7 +140,8 @@ export function permissionFor(path: string, method: string) {
   const p = path.replace(/\/$/, "")
   if (p === "/api/v1/auth/login" || p === "/api/v1/auth/session" || p === "/api/v1/auth/logout") return null
   if (/^\/api\/v1\/(?:clinical(?:-records(?:\/[^/]+(?:\/(?:finalize|rectifications|versions))?)?|\/patients)|assessments(?:\/[^/]+(?:\/(?:stages|interpretations|complete|cancel))?)?|aba\/(?:plans(?:\/[^/]+(?:\/(?:activate|close|goals(?:\/[^/]+)?))?)?|sessions(?:\/[^/]+\/void)?))$/.test(p)) return method === "GET" ? "clinical:read" : "clinical:write"
-  if (/^\/api\/v1\/financial\/(?:entries(?:\/[^/]+(?:\/(?:payments|cancel))?)?|payments\/[^/]+\/reverse|summary)$/.test(p)) return method === "GET" ? "finance:read" : "finance:write"
+  if (p === "/api/v1/financial/export") return method === "GET" ? "finance:export" : null
+  if (/^\/api\/v1\/financial\/(?:entries(?:\/[^/]+(?:\/(?:payments|cancel))?)?|payments\/[^/]+\/reverse|summary|report)$/.test(p)) return method === "GET" ? "finance:read" : "finance:write"
   if (/^\/api\/v1\/documents(?:\/[^/]+(?:\/(?:status|releases(?:\/[^/]+\/revoke)?))?)?$/.test(p)) return method === "GET" ? "documents:read" : "documents:write"
   if (/^\/api\/v1\/(?:users(?:\/[^/]+(?:\/(?:password|roles))?)?|roles(?:\/[^/]+\/permissions)?|permissions)$/.test(p)) return method === "GET" ? "users:read" : "users:manage"
   if (/^\/api\/v1\/preferences\/tables\/[^/]+(?:\/views\/[^/]+)?$/.test(p)) {
