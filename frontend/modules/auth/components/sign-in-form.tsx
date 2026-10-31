@@ -8,16 +8,10 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { HaloButton } from "@/components/ui/halo-button"
-import { DEMO_PASSWORD, loginSchema, type LoginInput } from "@/domain/schemas"
+import { loginSchema, type LoginInput } from "@/domain/schemas"
 import { api } from "@/shared/api/demo-api"
 import { Input } from "@/shared/ui/atoms/text-input"
 import { FormField } from "@/shared/ui/molecules/form-field"
-
-const DEMO_ACCOUNTS = [
-  { email: "marina@clinicaflor.demo", label: "Administração" },
-  { email: "juliana@clinicaflor.demo", label: "Recepção" },
-  { email: "helena@clinicaflor.demo", label: "Profissional" },
-]
 
 export function SignInForm() {
   const router = useRouter()
@@ -28,7 +22,6 @@ export function SignInForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -44,12 +37,6 @@ export function SignInForm() {
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Não foi possível entrar.")
     }
-  }
-
-  function fillDemo(email: string) {
-    setValue("email", email, { shouldValidate: true })
-    setValue("password", DEMO_PASSWORD, { shouldValidate: true })
-    setFormError(null)
   }
 
   return (
@@ -101,24 +88,6 @@ export function SignInForm() {
           Entrar
         </HaloButton>
       </form>
-
-      <div className="flex flex-col gap-3 rounded-xl border border-dashed bg-muted/40 p-4">
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Contas de demonstração (senha <span className="font-mono text-foreground">{DEMO_PASSWORD}</span>):
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {DEMO_ACCOUNTS.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              onClick={() => fillDemo(acc.email)}
-              className="rounded-full border bg-card px-3 py-1 text-sm transition-colors hover:border-primary/50 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              {acc.label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
