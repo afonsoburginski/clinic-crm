@@ -3,7 +3,7 @@ import { getHealth } from "@/domain/health";
 import { databaseReady } from "@/infrastructure/database";
 
 import { getResource } from "@/application/resources";
-import { hasPermission, permissionFor, type Auth } from "@/application/auth";
+import { AUTHENTICATED, hasPermission, permissionFor, type Auth } from "@/application/auth";
 import { auth } from "@/presentation/composition/auth";
 import { clinic, run, failure, type ApiEnv } from "@/presentation/routes/shared";
 export function createAuthRouter(auth: Auth) {
@@ -32,7 +32,7 @@ export function createAuthRouter(auth: Auth) {
       c.set("auth", { userId: user.id, user });
       const permission = permissionFor(c.req.path, c.req.method);
       if (permission === null) throw new Error("forbidden");
-      let allowed = permission === "documents:write" ? false : hasPermission(user, permission);
+      let allowed = permission === AUTHENTICATED ? true : permission === "documents:write" ? false : hasPermission(user, permission);
       if (!allowed && permission === "appointments:read") allowed = hasPermission(user, "appointments:read-own");
       if (!allowed && permission === "patients:read") allowed = hasPermission(user, "patients:read-own");
       if (permission.startsWith("clinical:") && user.roles.includes("admin")) allowed = false;

@@ -133,6 +133,9 @@ export function createAuth({ directory, sessions, env }: AuthDeps) {
 
 export type Auth = ReturnType<typeof createAuth>
 
+/** Sentinel for routes any signed-in user may call: they only touch the caller's own data (their table preferences). */
+export const AUTHENTICATED = "session:authenticated"
+
 export function permissionFor(path: string, method: string) {
   const p = path.replace(/\/$/, "")
   if (p === "/api/v1/auth/login" || p === "/api/v1/auth/session" || p === "/api/v1/auth/logout") return null
@@ -140,6 +143,11 @@ export function permissionFor(path: string, method: string) {
   if (/^\/api\/v1\/financial\/(?:entries(?:\/[^/]+(?:\/(?:payments|cancel))?)?|payments\/[^/]+\/reverse|summary)$/.test(p)) return method === "GET" ? "finance:read" : "finance:write"
   if (/^\/api\/v1\/documents(?:\/[^/]+(?:\/(?:status|releases(?:\/[^/]+\/revoke)?))?)?$/.test(p)) return method === "GET" ? "documents:read" : "documents:write"
   if (/^\/api\/v1\/(?:users(?:\/[^/]+(?:\/(?:password|roles))?)?|roles(?:\/[^/]+\/permissions)?|permissions)$/.test(p)) return method === "GET" ? "users:read" : "users:manage"
+  if (/^\/api\/v1\/preferences\/tables\/[^/]+(?:\/views\/[^/]+)?$/.test(p)) {
+    const view = p.includes("/views/")
+    if (view ? method === "PUT" || method === "DELETE" : method === "GET") return AUTHENTICATED
+    return null
+  }
   if (p === "/api/v1/settings") return "settings:manage"
   if (p === "/api/v1/audit") return "audit:read"
   if (/^\/api\/v1\/(?:professionals(?:\/[^/]+(?:\/(?:schedule|unavailabilities(?:\/[^/]+)?))?)?|specialties(?:\/[^/]+)?|services(?:\/[^/]+)?|rooms(?:\/[^/]+)?)$/.test(p)) return "professionals:manage"

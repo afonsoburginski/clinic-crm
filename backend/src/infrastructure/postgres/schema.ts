@@ -18,7 +18,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 /**
- * Drizzle mirror of the SQL migrations in `backend/migrations` (001–006). The SQL files are the source of truth
+ * Drizzle mirror of the SQL migrations in `backend/migrations` (001–007). The SQL files are the source of truth
  * for what is applied; this file exists so queries are typed and `drizzle-kit generate` can diff what comes next.
  * Not expressible here: `audit_events` and `dashboard_daily` are range partitioned (with DEFAULT partitions) in SQL.
  */
@@ -330,5 +330,39 @@ export const userRoles = pgTable(
       columns: [t.clinicId, t.roleKey],
       foreignColumns: [roles.clinicId, roles.key],
     }),
+  ],
+)
+
+// ------------------------------------------------------------------ 007_table_preferences
+
+/** Saved views of a data table, per user: `default` holds the working preferences, any other name is a saved view. */
+export const userTablePreferences = pgTable(
+  "user_table_preferences",
+  {
+    clinicId: uuid("clinic_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    tableKey: text("table_key").notNull(),
+    viewName: text("view_name").notNull().default("default"),
+    pageSize: integer("page_size"),
+    sort: jsonb("sort").notNull().default(sql`'[]'::jsonb`),
+    hiddenColumns: jsonb("hidden_columns").notNull().default(sql`'[]'::jsonb`),
+    columnOrder: jsonb("column_order").notNull().default(sql`'[]'::jsonb`),
+    filters: jsonb("filters").notNull().default(sql`'{}'::jsonb`),
+    isDefault: boolean("is_default").notNull().default(false),
+    updatedAt: timestamptz("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.clinicId, t.userId, t.tableKey, t.viewName] }),
+    check("user_table_preferences_key_check", sql`${t.tableKey} ~ '^[a-z0-9-]{1,60}$'`),
+    check("user_table_preferences_view_check", sql`length(trim(${t.viewName})) BETWEEN 1 AND 40`),
+    check("user_table_preferences_page_size_check", sql`${t.pageSize} IS NULL OR ${t.pageSize} BETWEEN 1 AND 200`),
+    uniqueIndex("user_table_preferences_one_default")
+      .on(t.clinicId, t.userId, t.tableKey)
+      .where(sql`${t.isDefault}`),
+    foreignKey({
+      name: "user_table_preferences_user_fk",
+      columns: [t.clinicId, t.userId],
+      foreignColumns: [users.clinicId, users.id],
+    }).onDelete("cascade"),
   ],
 )
