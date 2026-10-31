@@ -1,0 +1,26 @@
+# Dependencies and generated files
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/*.tsbuildinfo
+.DS_Store
+
+# Local configuration and credentials
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local tooling
+.vercel/
+**/.vercel/
+**/.design-cache/
+**/.v0-trash/
+**/.snowflake/
