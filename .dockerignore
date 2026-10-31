@@ -1,0 +1,8 @@
+**/node_modules
+**/.git
+**/*.md
+frontend
+backend/test
+backend/specs
+.ai
+*.log

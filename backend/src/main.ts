@@ -1,4 +1,4 @@
-import { app } from "./presentation/app"
+import { app } from "@/presentation/app"
 
 const port = Number(Bun.env.PORT ?? 3001)
 

@@ -1,5 +1,5 @@
-import type { AppointmentData, SchedulingRepository } from "../../../application/ports/scheduling"
-import { pool, query } from "../../database"
+import type { AppointmentData, SchedulingRepository } from "@/application/ports/scheduling"
+import { pool, query } from "@/infrastructure/database"
 
 export const schedulingRepository: SchedulingRepository = {
   async list(clinic, f) {

@@ -1,4 +1,4 @@
-import type { PatientInput, PatientResult, PatientsRepository } from "./patients-repository";
+import type { PatientInput, PatientResult, PatientsRepository } from "@/application/patients-repository";
 
 function one(result: PatientResult) {
   if (!result.rowCount) throw new Error("not_found");

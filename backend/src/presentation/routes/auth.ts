@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { getHealth } from "../../domain/health";
-import { databaseReady } from "../../infrastructure/database";
+import { getHealth } from "@/domain/health";
+import { databaseReady } from "@/infrastructure/database";
 
-import { getResource } from "../../application/resources";
-import { hasPermission, login, logout, permissionFor, session } from "../../application/auth";
-import { clinic, run, failure, type ApiEnv } from "./shared";
+import { getResource } from "@/application/resources";
+import { hasPermission, login, logout, permissionFor, session } from "@/application/auth";
+import { clinic, run, failure, type ApiEnv } from "@/presentation/routes/shared";
 const app = new Hono<ApiEnv>();
 app
   .get("/health", (c) => c.json(getHealth()))

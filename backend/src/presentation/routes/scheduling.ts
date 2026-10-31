@@ -1,10 +1,10 @@
 import { Hono } from "hono"
-import { hasPermission } from "../../application/auth"
-import { schedulingUseCases } from "../../application/use-cases/scheduling"
-import { transitionAppointment } from "../../application/use-cases/transition-appointment"
-import type { SchedulingRepository, AppointmentData } from "../../application/ports/scheduling"
-import type { AppointmentTransitionRepository } from "../../application/ports/appointment-transitions"
-import { clinic, run, type ApiEnv } from "./shared"
+import { hasPermission } from "@/application/auth"
+import { schedulingUseCases } from "@/application/use-cases/scheduling"
+import { transitionAppointment } from "@/application/use-cases/transition-appointment"
+import type { SchedulingRepository, AppointmentData } from "@/application/ports/scheduling"
+import type { AppointmentTransitionRepository } from "@/application/ports/appointment-transitions"
+import { clinic, run, type ApiEnv } from "@/presentation/routes/shared"
 
 export function createSchedulingRouter(repository: SchedulingRepository, transitionRepository: AppointmentTransitionRepository) {
   const app = new Hono<ApiEnv>()

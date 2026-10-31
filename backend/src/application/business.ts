@@ -1,5 +1,5 @@
-import { query } from "../infrastructure/database"
-import { validateAppointment } from "../domain/appointments"
+import { query } from "@/infrastructure/database"
+import { validateAppointment } from "@/domain/appointments"
 
 export async function listAppointments(clinic: string, from?: string, to?: string, professional?: string, status?: string, patient?: string) {
  return query("SELECT id,kind,title,patient_id AS \"patientId\",professional_id AS \"professionalId\",service_id AS \"serviceId\",room_id AS \"roomId\",starts_at AS \"start\",ends_at AS \"end\",status,notes,created_by AS \"createdBy\" FROM appointments WHERE clinic_id=$1 AND ($2::timestamptz IS NULL OR starts_at >= $2) AND ($3::timestamptz IS NULL OR starts_at < $3) AND ($4::uuid IS NULL OR professional_id=$4) AND ($5::text IS NULL OR status=$5) AND ($6::uuid IS NULL OR patient_id=$6) ORDER BY starts_at",[clinic,from??null,to??null,professional??null,status??null,patient??null])

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { app } from "../src/presentation/app";
+import { app } from "@/presentation/app";
 
 describe("API routers", () => {
   it("applies authentication to protected routers without a database", async () => {

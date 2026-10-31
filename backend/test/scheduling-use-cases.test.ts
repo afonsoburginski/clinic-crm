@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { AppointmentData, AppointmentFilters, AppointmentUpdateState, SchedulingRepository } from "../src/application/ports/scheduling"
-import { schedulingUseCases } from "../src/application/use-cases/scheduling"
+import type { AppointmentData, AppointmentFilters, AppointmentUpdateState, SchedulingRepository } from "@/application/ports/scheduling"
+import { schedulingUseCases } from "@/application/use-cases/scheduling"
 
 class FakeRepository implements SchedulingRepository {
   filters?: AppointmentFilters

@@ -6,7 +6,12 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@contracts/*": ["../shared/contracts/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

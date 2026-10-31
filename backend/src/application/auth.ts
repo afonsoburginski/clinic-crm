@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto"
-import { query } from "../infrastructure/database"
+import { query } from "@/infrastructure/database"
 
 export type Role = "admin" | "reception" | "professional" | "finance" | "manager"
 export type User = { id: string; name: string; email: string; roles: Role[]; professionalId?: string }

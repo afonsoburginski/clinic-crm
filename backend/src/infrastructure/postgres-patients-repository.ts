@@ -1,5 +1,5 @@
-import { query } from "./database";
-import type { PatientsRepository } from "../application/patients-repository";
+import { query } from "@/infrastructure/database";
+import type { PatientsRepository } from "@/application/patients-repository";
 
 export const postgresPatientsRepository: PatientsRepository = {
   list(clinicId, search, professional) {

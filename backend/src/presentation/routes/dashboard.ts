@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 
-import { query } from "../../infrastructure/database";
+import { query } from "@/infrastructure/database";
 
-import { dashboard } from "../../application/resources";
+import { dashboard } from "@/application/resources";
 
-import { clinic, run, type ApiEnv } from "./shared";
+import { clinic, run, type ApiEnv } from "@/presentation/routes/shared";
 const app = new Hono<ApiEnv>();
 app.get(
   "/api/v1/dashboard/summary",

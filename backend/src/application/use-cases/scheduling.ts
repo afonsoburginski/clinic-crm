@@ -1,5 +1,5 @@
-import { transitions, validateAppointment } from "../../domain/appointments"
-import type { AppointmentData, AppointmentFilters, SchedulingRepository } from "../ports/scheduling"
+import { transitions, validateAppointment } from "@/domain/appointments"
+import type { AppointmentData, AppointmentFilters, SchedulingRepository } from "@/application/ports/scheduling"
 
 export function schedulingUseCases(repository: SchedulingRepository) {
   return {

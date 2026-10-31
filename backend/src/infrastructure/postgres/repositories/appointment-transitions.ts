@@ -1,5 +1,5 @@
-import type { AppointmentTransitionRepository, AppointmentTransitionResult } from "../../../application/ports/appointment-transitions"
-import { pool } from "../../database"
+import type { AppointmentTransitionRepository, AppointmentTransitionResult } from "@/application/ports/appointment-transitions"
+import { pool } from "@/infrastructure/database"
 
 export const appointmentTransitions: AppointmentTransitionRepository = {
   async transaction(work) {

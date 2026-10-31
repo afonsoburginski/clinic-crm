@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { patientProfessionalScope } from "../src/application/patient-scope";
-import type { User } from "../src/application/auth";
+import { patientProfessionalScope } from "@/application/patient-scope";
+import type { User } from "@/application/auth";
 
 const user = (roles: User["roles"], professionalId?: string): User => ({ id: "u", name: "Teste", email: "demo@example.test", roles, professionalId });
 

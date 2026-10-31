@@ -4,7 +4,7 @@ import {
   validateCancellation,
   validatePayment,
   validateReversal,
-} from "../src/domain/financial"
+} from "@/domain/financial"
 
 const entry = {
   amountCents: 10_000,

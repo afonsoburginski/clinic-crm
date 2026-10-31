@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import type { AppointmentTransitionRepository } from "../src/application/ports/appointment-transitions"
-import { transitionAppointment } from "../src/application/use-cases/transition-appointment"
+import type { AppointmentTransitionRepository } from "@/application/ports/appointment-transitions"
+import { transitionAppointment } from "@/application/use-cases/transition-appointment"
 
 function repository(current: string | null) {
   const updates: string[] = []

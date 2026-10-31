@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createPatientUseCases } from "../src/application/patients";
-import type { PatientResult, PatientsRepository } from "../src/application/patients-repository";
+import { createPatientUseCases } from "@/application/patients";
+import type { PatientResult, PatientsRepository } from "@/application/patients-repository";
 
 function fakeRepository() {
   const calls: Array<[string, ...unknown[]]> = [];

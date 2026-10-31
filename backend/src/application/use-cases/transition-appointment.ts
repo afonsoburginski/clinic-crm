@@ -1,5 +1,5 @@
-import { transitions } from "../../domain/appointments"
-import type { AppointmentTransitionRepository, AppointmentTransitionResult } from "../ports/appointment-transitions"
+import { transitions } from "@/domain/appointments"
+import type { AppointmentTransitionRepository, AppointmentTransitionResult } from "@/application/ports/appointment-transitions"
 
 export async function transitionAppointment(
   repository: AppointmentTransitionRepository,

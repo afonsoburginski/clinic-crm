@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { patientProfessionalScope } from "../../application/patient-scope";
-import { patients } from "../composition/patients";
-import { clinic, run, type ApiEnv } from "./shared";
+import { patientProfessionalScope } from "@/application/patient-scope";
+import { patients } from "@/presentation/composition/patients";
+import { clinic, run, type ApiEnv } from "@/presentation/routes/shared";
 
 const app = new Hono<ApiEnv>();
 app.get("/api/v1/patients", run(async (c) => {
