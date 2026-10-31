@@ -16,3 +16,4 @@ export function notifyError(error: unknown) {
 }
 
 export const notifySuccess = (message: string, description?: string) => toast.success(message, { description })
+export const notifyInfo = (message: string, description?: string) => toast.info(message, { description })
