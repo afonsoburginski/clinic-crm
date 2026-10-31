@@ -19,5 +19,10 @@ export const filtersOf = (c: Context<ApiEnv>) => ({
 export function actorOf(c: Context<ApiEnv>): Actor {
   const auth = c.get("auth");
   if (!auth?.userId) throw new Error("unauthorized");
-  return { userId: auth.userId, roles: auth.user.roles, professionalId: auth.user.professionalId };
+  return {
+    userId: auth.userId,
+    roles: auth.user.roles,
+    permissions: auth.user.permissions,
+    professionalId: auth.user.professionalId,
+  };
 }

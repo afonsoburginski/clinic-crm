@@ -1,6 +1,6 @@
 # Clinic API
 
-API em Bun + Hono com PostgreSQL. Configure `PORT` (padrão `3001`), `DATABASE_URL` e `CLINIC_ID` (UUID). Aplique `migrations/001_initial.sql`, `migrations/002_business_core.sql` e `migrations/003_auth_sessions.sql` em ordem antes de iniciar com `bun run dev`.
+API em Bun + Hono com PostgreSQL. Configure `PORT` (padrão `3001`), `DATABASE_URL` e `CLINIC_ID` (UUID). Aplique as migrations de `migrations/` em ordem (veja "Migrações") antes de iniciar com `bun run dev`.
 
 ## Arquitetura
 
@@ -12,7 +12,16 @@ Regras puras de agenda ficam em `src/domain/appointments.ts`, progresso de metas
 
 `GET /health` e `GET /health/ready`; pacientes (listar, cadastrar, detalhe, editar, duplicados), responsáveis e vínculos; agenda (listar, criar, detalhe, reagendar, status/transições, sugestões e histórico por paciente); catálogo (especialidades, serviços, salas, profissionais, agenda/indisponibilidades, configurações, auditoria); prontuários clínicos com cadeia de versões/retificação; avaliações; planos e sessões ABA com progresso de metas; lançamentos financeiros com pagamentos/cancelamento/estorno; documentos com liberação/revogação a responsáveis; dashboard por período.
 
-Autenticação usa usuários provisionados em `AUTH_USERS_JSON` (hashes de senha) e `AUTH_SESSION_SECRET` com no mínimo 32 caracteres; sessões são persistidas e revogáveis. Rotas desconhecidas sob `/api/v1` são negadas.
+Autenticação lê os usuários do banco (`users` + `user_roles`) e exige `AUTH_SESSION_SECRET` com no mínimo 32 caracteres; sessões são persistidas e revogáveis. Usuário desativado perde a sessão na hora; redefinir a senha ou desativar também revoga as sessões. `AUTH_USERS_JSON` (opcional) é só bootstrap: se a clínica ainda não tem usuários, a lista é importada uma vez (upsert por e-mail, preservando hash e papéis; ids que não forem UUID ganham um novo, então sessões antigas pedem novo login). Rotas desconhecidas sob `/api/v1` são negadas.
+
+Usuários, papéis e permissões (`backend/specs/users-roles.spec.md`): `GET/POST /users`, `GET/PATCH/DELETE /users/:id` (DELETE desativa, não apaga), `PUT /users/:id/roles`, `POST /users/:id/password`, `GET /roles`, `PUT /roles/:key/permissions`, `GET /permissions`. Leitura exige `users:read`, escrita `users:manage`. A matriz papel × permissão é editável e fica no banco por clínica; os padrões vêm de `src/domain/permissions.ts` (única fonte) e são semeados de forma idempotente no primeiro uso da clínica, sem sobrescrever matriz já editada. O papel `admin` nunca recebe `clinical:*` (RN-AUTH-002) e não perde `users:*`/`settings:manage`; a clínica sempre mantém ao menos um administrador ativo. Papéis são os 5 de sistema (admin, reception, professional, finance, manager); papéis customizados não existem. O cache da matriz dura 15 s por instância (invalidado na hora na instância que editou).
+
+## Migrações
+
+- `migrations/001…006_*.sql` são escritas à mão, aplicadas em ordem (`psql -f`) e definem as tabelas existentes. Uma base nova precisa de todas, em ordem; uma base já migrada só recebe as novas (a `006` usa `IF NOT EXISTS` e o seed do catálogo de permissões é idempotente).
+- O ORM é o Drizzle (`drizzle-orm` sobre o `pg` existente, sem segundo pool). `src/infrastructure/postgres/schema.ts` espelha as tabelas das migrations 001–006 (as tabelas particionadas `audit_events` e `dashboard_daily` e os índices parciais ficam no SQL). `drizzle.config.ts` aponta para `migrations/drizzle/`.
+- Baseline: `migrations/drizzle/0000_baseline.sql` não faz nada (`SELECT 1`) e o snapshot em `meta/` descreve o estado de 001–006; assim `bun run db:migrate` nunca recria tabela existente, em base nova (depois de 001–006) ou já migrada. Mudanças futuras: edite `schema.ts`, rode `bun run db:generate` (gera só o incremental), confira com `bun run db:check` e aplique com `bun run db:migrate` (precisa de `DATABASE_URL`). Seeds de migration só para papéis/permissões padrão, nunca dados de demonstração.
+- Teste de repositório contra Postgres: `TEST_DATABASE_URL=postgres://… bun test test/users-repository.test.ts` (base com 001–006 aplicadas; ignorado sem a variável).
 
 ## Lacunas conhecidas (não são bypass de acesso)
 

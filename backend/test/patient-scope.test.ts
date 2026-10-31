@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { patientProfessionalScope } from "@/application/patient-scope";
 import type { User } from "@/application/auth";
+import { defaultMatrix, effectivePermissions } from "@/domain/permissions";
 
-const user = (roles: User["roles"], professionalId?: string): User => ({ id: "u", name: "Teste", email: "demo@example.test", roles, professionalId });
+const user = (roles: User["roles"], professionalId?: string): User => ({ id: "u", name: "Teste", email: "demo@example.test", roles, permissions: effectivePermissions(roles, defaultMatrix()), professionalId });
 
 describe("escopo de pacientes", () => {
   test("restringe profissionais ao vínculo", () => expect(patientProfessionalScope(user(["professional"], "p1"))).toBe("p1"));

@@ -1,11 +1,6 @@
-import type { Role } from "@/application/auth";
-import { hasPermission } from "@/application/auth";
 import type { PermissionPolicy } from "@/application/ports/permissions";
 
+/** The session resolves the effective permissions from the persisted role matrix; an actor without them has none. */
 export const permissions: PermissionPolicy = {
-  has: (actor, permission) =>
-    hasPermission(
-      { id: actor.userId, name: "", email: "", roles: [...actor.roles] as Role[], professionalId: actor.professionalId },
-      permission,
-    ),
+  has: (actor, permission) => actor.permissions?.includes(permission) ?? false,
 };

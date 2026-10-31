@@ -2,6 +2,8 @@
 export interface Actor {
   userId: string
   roles: readonly string[]
+  /** Effective permissions resolved by the session; absent for internal callers. */
+  permissions?: readonly string[]
   professionalId?: string
 }
 

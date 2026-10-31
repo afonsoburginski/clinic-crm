@@ -1,3 +1,4 @@
+import { DomainError } from "@/application/errors";
 import { query } from "@/infrastructure/database";
 
 export type ApiEnv = {
@@ -48,7 +49,9 @@ export function failure(c: any, e: unknown) {
           ? "AUTH_USERS_JSON e AUTH_SESSION_SECRET (mínimo 32 caracteres) são obrigatórios."
           : code === "internal_error"
             ? "Falha ao acessar os dados."
-            : m;
+            : e instanceof DomainError
+              ? e.detail
+              : m;
   return c.json({ error: { code, message } }, s);
 }
 export const run = (fn: (c: any) => Promise<any>) => async (c: any) => {

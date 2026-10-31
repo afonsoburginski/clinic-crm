@@ -1,7 +1,7 @@
 {
   "services": [
     {"name":"frontend","path":"frontend","entrypoint":"Next.js package scripts","dependencies":["next","react","zod"],"dependsOn":["shared-contracts","clinic-api"]},
-    {"name":"clinic-api","path":"backend","entrypoint":"TBD","dependencies":["bun","hono","postgresql"],"dependsOn":["shared-contracts"]},
+    {"name":"clinic-api","path":"backend","entrypoint":"TBD","dependencies":["bun","hono","postgresql","drizzle-orm","drizzle-kit"],"dependsOn":["shared-contracts"]},
     {"name":"shared-contracts","path":"shared/contracts","entrypoint":"TBD","dependencies":[],"dependsOn":[]}
   ]
 }
