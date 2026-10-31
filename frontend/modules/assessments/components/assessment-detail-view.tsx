@@ -13,7 +13,6 @@ import { useCan, useCurrentUser } from "@/shared/lib/current-user"
 import { formatDateTime } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
 import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { FormField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
@@ -73,7 +72,6 @@ export function AssessmentDetailView({ id }: { id: string }) {
         }
       />
 
-      <DemoNotice />
       {open && canWrite && !isResponsible && (
         <p className="text-sm text-muted-foreground">Só {responsible?.name ?? "o responsável"} conclui ou cancela esta avaliação.</p>
       )}

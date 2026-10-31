@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useSessionStore } from "@/shared/lib/session-store"
 
 export function useDashboardSummary() {

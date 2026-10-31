@@ -140,8 +140,7 @@ export function tipsFor(user: User | null | undefined): TourTip[] {
       id: "optimistic",
       text: "Ações diretas, como mudar o status de um atendimento ou remover um vínculo, aparecem na hora; se o sistema recusar, a tela volta ao que era e explica o motivo.",
     },
-    { id: "account", text: "No menu da conta você alterna o tema, troca de perfil e revê esta orientação quando quiser." },
-    { id: "demo", text: "Esta é uma demonstração: os dados ficam só neste navegador. Não registre informações reais de pacientes." }
+    { id: "account", text: "No menu da conta você alterna o tema, troca de perfil e revê esta orientação quando quiser." }
   )
   return tips
 }

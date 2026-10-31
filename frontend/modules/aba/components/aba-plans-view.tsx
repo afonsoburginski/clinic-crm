@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { AbaPlanStatus } from "@/domain/types"
 import { formatBirthDate } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -50,7 +49,6 @@ export function AbaPlansView() {
           </PermissionGate>
         }
       />
-      <DemoNotice />
       <SectionCard bodyClassName="p-0">
         <Toolbar label="Filtros de planos">
           <ToolbarGroup>

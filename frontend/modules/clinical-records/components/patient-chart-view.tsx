@@ -10,7 +10,6 @@ import type { ClinicalRecord, ClinicalRecordKind } from "@/domain/types"
 import { formatAge, formatDateTime } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -65,7 +64,6 @@ export function PatientChartView({ patientId }: { patientId: string }) {
         }
       />
 
-      <DemoNotice />
 
       <SectionCard bodyClassName="p-0">
         <Toolbar label="Filtro de registros">

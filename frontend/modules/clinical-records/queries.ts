@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import type { ClinicalRecordInput, RectificationInput } from "@/domain/schemas"
 import type { ClinicalRecord, ClinicalRecordKind } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
 export const chartKeys = {

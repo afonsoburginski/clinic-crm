@@ -27,7 +27,7 @@ describe("onboarding store", () => {
   it("persiste o desfecho e o recupera numa nova sessão", async () => {
     const storage = memory()
     createOnboardingStore(storage).getState().finish("u1", "completed")
-    expect(JSON.parse(storage.data["clinica-demo-onboarding"]).state.records.u1).toMatchObject({ outcome: "completed", version: TOUR_VERSION })
+    expect(JSON.parse(storage.data["villiere-onboarding"]).state.records.u1).toMatchObject({ outcome: "completed", version: TOUR_VERSION })
 
     const next = createOnboardingStore(storage)
     await next.persist.rehydrate()

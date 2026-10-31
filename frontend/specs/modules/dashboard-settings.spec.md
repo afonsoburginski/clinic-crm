@@ -23,4 +23,4 @@ Implementação: `modules/dashboard/`, `modules/settings/`, `modules/audit/`
 - **RF-CFG-005** Filtro por recurso e por autor.
 - **RN-CFG-002** O registro de auditoria é somente leitura.
 - **RN-CFG-003** Entradas de prontuário, avaliação, ABA e documento (`clinical_record`, `assessment`, `aba_plan`, `aba_session`, `document`, `document_release`) nunca expõem nome de paciente, título nem conteúdo: a listagem devolve, para qualquer perfil com `audit:read` (inclusive gestor sem acesso clínico), apenas ator, data, ação, recurso e identificador opaco, com um resumo padronizado ("Alterou registro de prontuário") e sem diff — mesmo para entradas antigas gravadas com mais detalhe. O dado guardado não é reescrito; a redação é feita na leitura, e a escrita nunca grava `changes` desses recursos.
-- **RN-CFG-004** Leituras clínicas permitidas são auditadas como `read` (RN-PRN-011). Restaurar a demo é registrado como `reset` (RN-AUTH-007).
+- **RN-CFG-004** Leituras clínicas permitidas são auditadas como `read` (RN-PRN-011).

@@ -1,42 +1,22 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { CircleHelp, ChevronsUpDown, LogOut, RotateCcw } from "lucide-react"
+import { CircleHelp, ChevronsUpDown, LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { can, ROLE_LABELS } from "@/domain/permissions"
+import { ROLE_LABELS } from "@/domain/permissions"
 import type { User } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
-import { notifyError, notifySuccess } from "@/shared/lib/notify"
+import { api } from "@/shared/api/api"
 import { useUiStore } from "@/shared/lib/ui-store"
 import { PersonAvatar } from "../atoms/person-avatar"
-import { ConfirmDialog } from "../molecules/confirm-dialog"
 
 export function AccountMenu({ user }: { user: User | null }) {
-  const resetting = useUiStore((s) => s.demoResetOpen)
-  const setResetting = useUiStore((s) => s.setDemoResetOpen)
   const closeOverlays = useUiStore((s) => s.closeAll)
   const openTour = useUiStore((s) => s.setTourOpen)
-  const [pending, setPending] = useState(false)
   const router = useRouter()
   const client = useQueryClient()
-
-  async function resetDemo() {
-    setPending(true)
-    try {
-      await api.auth.resetDemo({ confirm: true })
-      await client.invalidateQueries()
-      notifySuccess("Dados de demonstração restaurados")
-      setResetting(false)
-    } catch (error) {
-      notifyError(error)
-    } finally {
-      setPending(false)
-    }
-  }
 
   if (!user) return null
   return (
@@ -55,12 +35,10 @@ export function AccountMenu({ user }: { user: User | null }) {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => openTour(true)}><CircleHelp aria-hidden />Rever orientação do painel</DropdownMenuItem>
-            {can(user, "settings:manage") && <DropdownMenuItem onClick={() => setResetting(true)}><RotateCcw aria-hidden />Restaurar dados de demonstração</DropdownMenuItem>}
             <DropdownMenuItem onClick={() => { closeOverlays(); void api.auth.signOut(); client.clear(); router.replace("/entrar") }}><LogOut aria-hidden />Trocar de perfil / sair</DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog open={resetting} onOpenChange={setResetting} title="Restaurar dados de demonstração?" description="Os dados locais de demonstração (prontuários, avaliações, plano ABA, financeiro e documentos) voltam ao estado inicial. Pacientes, agenda e cadastros ficam no servidor e não são afetados. Não dá para desfazer." confirmLabel="Restaurar" destructive pending={pending} onConfirm={resetDemo} />
     </>
   )
 }

@@ -1,8 +1,8 @@
 # ABA — Plano, sessões e medidas
 
-Implementação: `domain/aba.ts`, `shared/api/demo-clinical.ts`, `modules/aba/`
-Testes: `domain/__tests__/aba.test.ts`, `shared/api/__tests__/demo-api-rbac.test.ts`
-**Somente interface de demonstração (DEMO):** dados em `localStorage`. Nenhuma medida é semeada ou inventada.
+Implementação: `domain/aba.ts`, `shared/api/clinical-api.ts` (HTTP), `shared/api/clinical-mappers.ts`, `modules/aba/`
+Testes: `domain/__tests__/aba.test.ts`, `shared/api/__tests__/clinical-api-http.test.ts`, `shared/api/__tests__/clinical-mappers.test.ts`
+Dados na API (`/aba/plans`, `/aba/sessions`), guardados em `api_resources`. Nenhuma medida é semeada ou inventada; o histórico do plano (`changeLog`) e o `percent` de cada medida são gravados junto do recurso.
 
 ## Requisitos
 

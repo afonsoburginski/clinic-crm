@@ -1,8 +1,8 @@
 # AVA — Avaliações
 
-Implementação: `domain/assessment.ts`, `shared/api/demo-clinical.ts`, `modules/assessments/`
-Testes: `domain/__tests__/assessment.test.ts`, `shared/api/__tests__/demo-api-rbac.test.ts` (o responsável do plano ABA segue a mesma regra — `specs/modules/aba.spec.md`)
-**Somente interface de demonstração (DEMO):** dados em `localStorage`, sem seed clínico.
+Implementação: `domain/assessment.ts`, `shared/api/clinical-api.ts` (HTTP), `shared/api/clinical-mappers.ts`, `modules/assessments/`
+Testes: `domain/__tests__/assessment.test.ts`, `shared/api/__tests__/clinical-api-http.test.ts`, `shared/api/__tests__/clinical-mappers.test.ts` (o responsável do plano ABA segue a mesma regra — `specs/modules/aba.spec.md`)
+Dados na API (`/assessments`, `/assessments/:id/stages|interpretations|complete|cancel`), guardados em `api_resources`; a API chama a etapa concluída de `completed` e a interpretação de `content`.
 
 ## Requisitos
 

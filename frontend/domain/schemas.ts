@@ -147,8 +147,6 @@ export interface AppointmentInput {
   recurrenceWeeks?: number
 }
 
-export const DEMO_PASSWORD = "clinica123"
-
 export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido").trim().toLowerCase(),
   password: z.string().min(8, "A senha tem pelo menos 8 caracteres"),

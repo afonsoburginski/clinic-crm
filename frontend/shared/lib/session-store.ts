@@ -11,7 +11,7 @@ export interface Session {
 
 interface SessionState {
   userId: string | null
-  /** Snapshot do usuário da sessão: permite resolver permissões de forma síncrona (adaptadores demo). */
+  /** Snapshot do usuário da sessão: permite resolver permissões de forma síncrona na UI (o servidor é quem decide). */
   user: User | null
   accessToken: string | null
   expiresAt: string | null
@@ -40,9 +40,9 @@ export const useSessionStore = create<SessionState>()(
       signOut: () => set(SIGNED_OUT),
     }),
     {
-      name: "clinica-demo-session",
-      // v1 guardava só o `userId` da sessão demo: sem token não há sessão real, então volta deslogado.
-      version: 2,
+      name: "villiere-session",
+      // Versões anteriores guardavam outra forma de sessão: sem token válido da API volta deslogado.
+      version: 3,
       migrate: () => SIGNED_OUT,
     }
   )

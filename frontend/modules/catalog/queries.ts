@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import type { ProfessionalInput, RoomInput, ServiceInput, SpecialtyInput, UnavailabilityInput } from "@/domain/schemas"
 import type { Professional, WeeklySlot } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { optimisticPatch, patchById } from "@/shared/lib/optimistic"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 

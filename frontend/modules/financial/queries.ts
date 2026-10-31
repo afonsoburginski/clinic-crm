@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { FinancialEntryInput, PaymentInput, ReasonInput } from "@/domain/schemas"
 import type { FinancialEntry } from "@/domain/types"
-import { api, type FinancialFilters } from "@/shared/api/demo-api"
+import { api, type FinancialFilters } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
 export const financialKeys = {

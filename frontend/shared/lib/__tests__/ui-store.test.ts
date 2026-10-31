@@ -9,9 +9,9 @@ describe("useUiStore", () => {
     const ui = useUiStore.getState()
     ui.setMobileNavOpen(true)
     ui.toggleQuickSearch()
-    ui.setDemoResetOpen(true)
+    ui.setTourOpen(true)
 
-    expect(useUiStore.getState()).toMatchObject({ mobileNavOpen: true, quickSearchOpen: true, demoResetOpen: true })
+    expect(useUiStore.getState()).toMatchObject({ mobileNavOpen: true, quickSearchOpen: true, tourOpen: true })
 
     useUiStore.getState().toggleQuickSearch()
     expect(useUiStore.getState().quickSearchOpen).toBe(false)
@@ -21,10 +21,10 @@ describe("useUiStore", () => {
     const ui = useUiStore.getState()
     ui.setMobileNavOpen(true)
     ui.setQuickSearchOpen(true)
-    ui.setDemoResetOpen(true)
+    ui.setTourOpen(true)
 
     useUiStore.getState().closeAll()
 
-    expect(useUiStore.getState()).toMatchObject({ mobileNavOpen: false, quickSearchOpen: false, demoResetOpen: false })
+    expect(useUiStore.getState()).toMatchObject({ mobileNavOpen: false, quickSearchOpen: false, tourOpen: false })
   })
 })

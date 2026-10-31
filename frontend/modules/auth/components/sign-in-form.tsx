@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form"
 
 import { HaloButton } from "@/components/ui/halo-button"
 import { loginSchema, type LoginInput } from "@/domain/schemas"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { Input } from "@/shared/ui/atoms/text-input"
 import { FormField } from "@/shared/ui/molecules/form-field"
 

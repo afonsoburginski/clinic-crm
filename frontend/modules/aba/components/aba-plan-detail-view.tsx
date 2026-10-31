@@ -10,7 +10,6 @@ import { useCan } from "@/shared/lib/current-user"
 import { formatBirthDate, formatDateTime } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
 import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
@@ -81,7 +80,6 @@ export function AbaPlanDetailView({ id }: { id: string }) {
         }
       />
 
-      <DemoNotice />
       {plan.status === "closed" && plan.closeReason && (
         <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Plano encerrado:</span> {plan.closeReason}. Somente leitura.

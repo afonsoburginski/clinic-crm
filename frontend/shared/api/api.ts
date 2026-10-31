@@ -31,7 +31,6 @@ import {
   type UnavailabilityInput,
 } from "@/domain/schemas"
 import type { Appointment, AppointmentStatus, Patient, PatientStatus, Professional, WeeklySlot } from "@/domain/types"
-import { resetDB, uid } from "@/shared/lib/demo-db"
 import { useSessionStore } from "@/shared/lib/session-store"
 
 import {
@@ -50,28 +49,14 @@ import {
   toUser,
   type Row,
 } from "./backend-mappers"
-import { abaApi, assessmentsApi, clinicalRecordsApi } from "./demo-clinical"
-import { actor, blankToUndefined, parse, requirePermission } from "./demo-context"
-import { documentsApi } from "./demo-documents"
-import { financialApi } from "./demo-financial"
+import { abaApi, assessmentsApi, clinicalRecordsApi } from "./clinical-api"
+import { documentsApi } from "./documents-api"
+import { financialApi } from "./financial-api"
+import { blankToUndefined, currentUser, items, parse, seg, uid, whenForbidden } from "./helpers"
 import { http } from "./http-client"
+import { invalidatePatients, loadPatients } from "./patient-directory"
 
-// ---------------------------------------------------------------- helpers HTTP
-
-const seg = encodeURIComponent
-
-async function items(path: string, query?: Record<string, string | undefined>) {
-  const body = await http.get<{ items?: Row[] }>(path, { query })
-  return body.items ?? []
-}
-
-/** Perfis sem acesso a um recurso opcional recebem o valor neutro em vez de derrubar a tela inteira. */
-const whenForbidden =
-  <T>(fallback: T) =>
-  (error: unknown) => {
-    if (error instanceof ForbiddenError) return fallback
-    throw error
-  }
+// ---------------------------------------------------------------- helpers
 
 const byName = <T extends { name: string }>(list: T[]) => [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 const statusOf = (active: boolean) => (active ? "active" : "inactive")
@@ -105,12 +90,6 @@ const auth = {
     if (!accessToken) return
     await http.post("/auth/logout", { token: accessToken }).catch(() => undefined)
   },
-  /** RF-AUTH-005: restaura só os dados locais dos módulos demo (prontuário, avaliações, ABA, financeiro, documentos). */
-  async resetDemo(input: { confirm: true }) {
-    requirePermission(actor(), "settings:manage")
-    if (input?.confirm !== true) throw new ValidationError("Confirme a restauração dos dados de demonstração.")
-    resetDB()
-  },
 }
 
 // ---------------------------------------------------------------- patients
@@ -118,31 +97,6 @@ const auth = {
 export interface PatientFilters {
   search?: string
   status?: PatientStatus | "all"
-}
-
-const PATIENT_LIST_TTL_MS = 5_000
-let patientListCache: { token: string | null; at: number; promise: Promise<Patient[]> } | null = null
-
-/**
- * A API só filtra por nome/CPF cru e o CPF é guardado com máscara, então busca, status e
- * duplicidade rodam no cliente sobre a lista completa. Cache curto evita um GET por tecla digitada.
- */
-function loadPatients(): Promise<Patient[]> {
-  const token = useSessionStore.getState().accessToken
-  if (patientListCache && patientListCache.token === token && Date.now() - patientListCache.at < PATIENT_LIST_TTL_MS) {
-    return patientListCache.promise
-  }
-  const promise = items("/patients").then((rows) => rows.map(toPatient))
-  const entry = { token, at: Date.now(), promise }
-  patientListCache = entry
-  promise.catch(() => {
-    if (patientListCache === entry) patientListCache = null
-  })
-  return promise
-}
-
-const invalidatePatients = () => {
-  patientListCache = null
 }
 
 async function getPatient(id: string) {
@@ -558,7 +512,7 @@ const appointments = {
   },
 
   async create(input: AppointmentInput) {
-    const user = actor()
+    const user = currentUser()
     validateAppointmentFields(input)
     const status: AppointmentStatus = input.kind === "block" ? "confirmed" : (input.status ?? "confirmed")
     if (!NEW_APPOINTMENT_STATUSES.includes(status)) {
@@ -648,7 +602,7 @@ const appointments = {
 
   /** O motivo do cancelamento não é gravado pela API; volta só no retorno desta chamada. */
   async changeStatus(id: string, to: AppointmentStatus, reason?: string) {
-    const user = actor()
+    const user = currentUser()
     const current = await getAppointment(id)
     if (!canUserTransition(user, current, to)) {
       throw new ForbiddenError(`Não é possível mudar de "${STATUS_LABELS[current.status]}" para "${STATUS_LABELS[to]}".`)
@@ -685,7 +639,7 @@ const auditLog = {
  */
 const dashboard = {
   async summary() {
-    const user = actor()
+    const user = currentUser()
     const scoped = isScopedToOwnAgenda(user)
 
     const today = nowInClinic()
@@ -760,7 +714,7 @@ export const api = {
   settings,
   audit: auditLog,
   dashboard,
-  // PRN / AVA / ABA / FIN / DOC — DEMO, coleções próprias (ver demo-seed.ts)
+  // PRN / AVA / ABA / FIN / DOC — recursos JSON da API (ver clinical-api.ts, financial-api.ts, documents-api.ts)
   clinicalRecords: clinicalRecordsApi,
   assessments: assessmentsApi,
   aba: abaApi,
@@ -768,9 +722,9 @@ export const api = {
   documents: documentsApi,
 }
 
-export type { AbaPlanView } from "./demo-clinical"
-export type { DocumentRow } from "./demo-documents"
-export type { FinancialFilters, FinancialRow } from "./demo-financial"
+export type { AbaPlanView } from "./clinical-api"
+export type { DocumentRow } from "./documents-api"
+export type { FinancialFilters, FinancialRow } from "./financial-api"
 
 export type ClinicApi = typeof api
 export type DashboardSummary = Awaited<ReturnType<typeof dashboard.summary>>

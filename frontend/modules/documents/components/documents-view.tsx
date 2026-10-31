@@ -10,7 +10,6 @@ import { activeReleases, CLASSIFICATION_LABELS, DOCUMENT_STATUS_LABELS, document
 import type { DocumentClassification, DocumentStatus, PatientDocument } from "@/domain/types"
 import { useCurrentUser } from "@/shared/lib/current-user"
 import { formatDate } from "@/shared/lib/format"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
@@ -58,7 +57,6 @@ export function DocumentsView() {
           )
         }
       />
-      <DemoNotice>Interface de demonstração: só metadados ficam neste navegador (localStorage). Não há arquivos nem portal do responsável.</DemoNotice>
 
       <SectionCard bodyClassName="p-0">
         <Toolbar label="Filtros de documentos">

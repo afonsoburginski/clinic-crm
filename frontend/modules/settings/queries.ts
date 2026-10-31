@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import type { SettingsInput } from "@/domain/schemas"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
 export function useClinicSettings() {

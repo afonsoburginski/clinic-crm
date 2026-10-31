@@ -11,7 +11,6 @@ import { clinicDateKey } from "@/domain/clinic-time"
 import { ENTRY_STATUS_LABELS, KIND_LABELS, type KindSummary } from "@/domain/financial"
 import type { FinancialEntry, FinancialEntryStatus, FinancialKind } from "@/domain/types"
 import { formatBirthDate, formatCurrency } from "@/shared/lib/format"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -62,7 +61,6 @@ export function FinancialView() {
           </PermissionGate>
         }
       />
-      <DemoNotice>Interface de demonstração: lançamentos e pagamentos ficam só neste navegador (localStorage). Os totais abaixo vêm apenas do que foi lançado aqui.</DemoNotice>
 
       <Toolbar variant="bar" label="Competência">
         <ToolbarGroup>

@@ -10,7 +10,6 @@ import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { AssessmentStatus } from "@/domain/types"
 import { useLookups } from "@/shared/lib/lookups"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
@@ -49,7 +48,6 @@ export function AssessmentsListView() {
           </PermissionGate>
         }
       />
-      <DemoNotice />
       <SectionCard bodyClassName="p-0">
         <Toolbar label="Filtros de avaliações">
           <ToolbarGroup>

@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { DocumentInput, ReasonInput, ReleaseInput } from "@/domain/schemas"
 import type { DocumentClassification, DocumentStatus, PatientDocument } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
 export interface DocumentFilters {

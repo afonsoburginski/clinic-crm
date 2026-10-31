@@ -7,7 +7,7 @@ import type { Role, User } from "@/domain/types"
 import { useSessionStore } from "@/shared/lib/session-store"
 
 import { DEFAULT_SETTINGS } from "../backend-mappers"
-import { api } from "../demo-api"
+import { api } from "../api"
 
 // Adaptador de dados contra a API Hono simulada: cada rota responde o que o backend devolve de fato.
 
@@ -117,15 +117,6 @@ describe("auth", () => {
 
     expect(useSessionStore.getState().accessToken).toBeNull()
     expect(callsTo("POST /auth/logout")[0].headers.Authorization).toBe(`Bearer ${token}`)
-  })
-
-  it("resetDemo restaura os dados locais só para quem gerencia configurações", async () => {
-    signInAs(["reception"])
-    await expect(api.auth.resetDemo({ confirm: true })).rejects.toThrow(ForbiddenError)
-    signInAs(["admin"])
-    await expect(api.auth.resetDemo({ confirm: false as true })).rejects.toThrow(/Confirme/)
-    await expect(api.auth.resetDemo({ confirm: true })).resolves.toBeUndefined()
-    expect(calls).toHaveLength(0)
   })
 })
 

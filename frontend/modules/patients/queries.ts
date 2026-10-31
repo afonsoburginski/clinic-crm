@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { GuardianInput, GuardianLinkInput, PatientInput } from "@/domain/schemas"
 import type { Patient, PatientStatus } from "@/domain/types"
-import { api, type PatientFilters, type PatientGuardian } from "@/shared/api/demo-api"
+import { api, type PatientFilters, type PatientGuardian } from "@/shared/api/api"
 import { optimisticPatch } from "@/shared/lib/optimistic"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 

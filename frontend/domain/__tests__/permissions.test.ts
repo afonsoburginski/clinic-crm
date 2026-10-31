@@ -83,3 +83,39 @@ describe("PRN — vínculo clínico (RN-PRN-001)", () => {
     expect(ids(undefined, [appt("completed")], patients)).toEqual([])
   })
 })
+
+describe("AUTH — matriz papel × permissão (a API aplica; a UI só espelha)", () => {
+  const roles = ["admin", "reception", "professional", "finance", "manager"] as const
+  const holders = (permission: Parameters<typeof can>[1]) => roles.filter((role) => can(user([role], "p1"), permission))
+
+  it("só o financeiro escreve no financeiro; a administração apenas lê (CA-FIN-004)", () => {
+    expect(holders("finance:write")).toEqual(["finance"])
+    expect(holders("finance:read")).toEqual(["admin", "finance"])
+  })
+
+  it("recepção, financeiro, gestor e administração não leem nem escrevem prontuário (CA-PRN-001)", () => {
+    expect(holders("clinical:read")).toEqual(["professional"])
+    expect(holders("clinical:write")).toEqual(["professional"])
+    expect(holders("assessments:interpret")).toEqual(["professional"])
+  })
+
+  it("financeiro não gerencia configurações nem catálogo (CA-AUTH-003)", () => {
+    for (const permission of ["settings:manage", "professionals:manage", "services:manage", "rooms:manage"] as const) {
+      expect(can(user(["finance"]), permission)).toBe(false)
+    }
+    expect(holders("settings:manage")).toEqual(["admin"])
+    expect(holders("audit:read")).toEqual(["admin", "manager"])
+  })
+
+  it("profissional enxerga só os próprios pacientes e a própria agenda", () => {
+    expect(holders("patients:read")).toEqual(["admin", "reception", "finance"])
+    expect(holders("patients:read-own")).toEqual(["professional"])
+    expect(holders("patients:write")).toEqual(["admin", "reception"])
+    expect(holders("appointments:read-own")).toEqual(["professional"])
+  })
+
+  it("todo papel acessa o painel; documentos só para quem lida com pacientes ou finanças", () => {
+    expect(holders("dashboard:read")).toEqual([...roles])
+    expect(holders("documents:read")).toEqual(["admin", "reception", "professional", "finance"])
+  })
+})

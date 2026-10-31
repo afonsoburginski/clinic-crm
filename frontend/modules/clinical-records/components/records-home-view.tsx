@@ -7,7 +7,6 @@ import { useDeferredValue, useMemo, useState } from "react"
 import { formatAge, formatDate } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
-import { DemoNotice } from "@/shared/ui/molecules/demo-notice"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SearchInput } from "@/shared/ui/molecules/search-input"
@@ -32,7 +31,6 @@ export function RecordsHomeView() {
         title="Prontuários"
         description="Anamneses, evoluções e documentos clínicos dos pacientes que você atende. Visível só para profissionais com vínculo."
       />
-      <DemoNotice />
       <SectionCard bodyClassName="p-0">
         <Toolbar label="Busca de prontuários">
           <ToolbarGroup className="w-full sm:max-w-xs">

@@ -1,8 +1,8 @@
 # DOC — Documentos
 
-Implementação: `domain/documents.ts`, `shared/api/demo-documents.ts`, `modules/documents/`
-Testes: `domain/__tests__/documents.test.ts`, `shared/api/__tests__/demo-api-rbac.test.ts`
-**Somente interface de demonstração (DEMO):** registro de metadados em `localStorage`; não há arquivos nem portal do responsável.
+Implementação: `domain/documents.ts`, `shared/api/documents-api.ts` (HTTP), `shared/api/document-mappers.ts`, `modules/documents/`
+Testes: `domain/__tests__/documents.test.ts`, `domain/__tests__/permissions.test.ts`, `shared/api/__tests__/financial-documents-http.test.ts`, `shared/api/__tests__/financial-document-mappers.test.ts`
+Dados na API (`/documents`, `/documents/:id/status`, `/documents/:id/releases`), guardados em `api_resources`; só metadados — não há arquivos nem portal do responsável.
 
 ## Requisitos
 

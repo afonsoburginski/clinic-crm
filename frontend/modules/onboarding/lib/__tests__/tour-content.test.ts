@@ -38,9 +38,9 @@ describe("roteiro da orientação", () => {
     expect(new Set(TOUR_FEATURES.map((f) => f.id)).size).toBe(TOUR_FEATURES.length)
   })
 
-  it("a dica de busca depende da permissão e o aviso de demonstração sempre aparece", () => {
+  it("a dica de busca depende da permissão e a dica da conta sempre aparece", () => {
     expect(tipsFor(user(["reception"])).some((t) => t.id === "quick-search")).toBe(true)
     expect(tipsFor(user(["manager"])).some((t) => t.id === "quick-search")).toBe(false)
-    expect(tipsFor(null).at(-1)?.id).toBe("demo")
+    expect(tipsFor(null).at(-1)?.id).toBe("account")
   })
 })

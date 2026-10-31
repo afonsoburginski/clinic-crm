@@ -26,18 +26,18 @@ import type {
  */
 export type Row = Record<string, unknown>
 
-const isRow = (value: unknown): value is Row => typeof value === "object" && value !== null && !Array.isArray(value)
+export const isRow = (value: unknown): value is Row => typeof value === "object" && value !== null && !Array.isArray(value)
 
 /** Texto opcional: `null`, vazio e tipos errados viram `undefined`. */
-const optional = (value: unknown) => (typeof value === "string" && value !== "" ? value : undefined)
-const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : value == null ? fallback : String(value))
-const flag = (value: unknown, fallback = false) => (typeof value === "boolean" ? value : fallback)
-const count = (value: unknown, fallback = 0) => {
+export const optional = (value: unknown) => (typeof value === "string" && value !== "" ? value : undefined)
+export const text = (value: unknown, fallback = "") => (typeof value === "string" ? value : value == null ? fallback : String(value))
+export const flag = (value: unknown, fallback = false) => (typeof value === "boolean" ? value : fallback)
+export const count = (value: unknown, fallback = 0) => {
   const n = typeof value === "number" ? value : Number(value)
   return Number.isFinite(n) ? n : fallback
 }
-const timestamp = (value: unknown) => (value instanceof Date ? value.toISOString() : typeof value === "string" ? value : "")
-const either = (row: Row, camel: string, snake: string) => row[camel] ?? row[snake]
+export const timestamp = (value: unknown) => (value instanceof Date ? value.toISOString() : typeof value === "string" ? value : "")
+export const either = (row: Row, camel: string, snake: string) => row[camel] ?? row[snake]
 
 export function toUser(raw: Row): User {
   const roles = (Array.isArray(raw.roles) ? raw.roles : []).filter((r): r is Role => typeof r === "string" && r in ROLE_LABELS)
@@ -141,7 +141,7 @@ export function toRoom(raw: Row): Room {
   }
 }
 
-const listOf = (value: unknown) => (Array.isArray(value) ? value.filter(isRow) : [])
+export const listOf = (value: unknown) => (Array.isArray(value) ? value.filter(isRow) : [])
 
 export function toProfessional(raw: Row): Professional {
   return {

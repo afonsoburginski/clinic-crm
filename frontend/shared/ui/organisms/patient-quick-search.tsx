@@ -13,7 +13,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useCan } from "@/shared/lib/current-user"
 import { formatAge } from "@/shared/lib/format"
 import { useUiStore } from "@/shared/lib/ui-store"

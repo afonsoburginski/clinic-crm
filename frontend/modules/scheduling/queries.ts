@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { AppointmentInput } from "@/domain/schemas"
 import type { Appointment, AppointmentStatus } from "@/domain/types"
-import { api, type AppointmentFilters } from "@/shared/api/demo-api"
+import { api, type AppointmentFilters } from "@/shared/api/api"
 import { optimisticPatch, patchById } from "@/shared/lib/optimistic"
 import { useSessionStore } from "@/shared/lib/session-store"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"

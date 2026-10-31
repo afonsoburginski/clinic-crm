@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 
 import type { Patient } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 
 /** Catálogos pequenos usados por vários módulos para resolver ids → nomes. */
 export function useLookups() {

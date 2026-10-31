@@ -1,8 +1,8 @@
 # FIN — Financeiro
 
-Implementação: `domain/financial.ts`, `shared/api/demo-financial.ts`, `modules/financial/`
-Testes: `domain/__tests__/financial.test.ts`, `domain/__tests__/schemas.test.ts`, `shared/api/__tests__/demo-api-rbac.test.ts`
-**Somente interface de demonstração (DEMO):** dados em `localStorage`, sem seed financeiro.
+Implementação: `domain/financial.ts`, `shared/api/financial-api.ts` (HTTP), `shared/api/financial-mappers.ts`, `modules/financial/`
+Testes: `domain/__tests__/financial.test.ts`, `domain/__tests__/schemas.test.ts`, `domain/__tests__/permissions.test.ts`, `shared/api/__tests__/financial-documents-http.test.ts`, `shared/api/__tests__/financial-document-mappers.test.ts`
+Dados na API (`/financial/entries`, `/financial/payments/:id/reverse`), guardados em `api_resources` no PostgreSQL; nada fica no navegador.
 
 ## Requisitos
 
@@ -22,7 +22,8 @@ Testes: `domain/__tests__/financial.test.ts`, `domain/__tests__/schemas.test.ts`
 - **RN-FIN-007** Estorno exige motivo, ocorre uma única vez por pagamento e preserva o pagamento marcado como estornado (deixa de contar no saldo).
 - **RN-FIN-008** Alterar o valor não pode deixá-lo abaixo do total já pago; o tipo (receita/despesa) não muda.
 - **RN-FIN-009** Sem dado clínico: lançamento só referencia paciente por id (opcional); não há campo clínico e a descrição é limitada a 120 caracteres. O módulo nunca lê coleções clínicas.
-- **RN-FIN-010** Ler exige `finance:read`; escrever (lançar, pagar, estornar, cancelar) exige `finance:write`. Auditoria sem valores.
+- **RN-FIN-010** Ler exige `finance:read`; escrever (lançar, pagar, estornar, cancelar) exige `finance:write`; a API recusa com 403. Auditoria sem valores.
+- **RN-FIN-012** Formato da API: o tipo do lançamento é enviado como `type` (e `kind`), sem código sequencial — o código de exibição é `LAN-` + 6 primeiros caracteres do id; a situação e o saldo são derivados no cliente dos pagamentos ativos, e filtros (competência, tipo, situação, busca) rodam sobre a lista devolvida.
 - **RN-FIN-011** Toda escrita financeira é auditada sem valor monetário (nem em texto, nem em diff). Alterar um lançamento registra a lista de campos alterados (`amountCents`, `dueDate`, `description`, …) com `from`/`to` nulos: o histórico mostra *o que* mudou, nunca *para quanto*.
 
 ## Critérios de aceite

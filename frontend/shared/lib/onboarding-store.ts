@@ -13,7 +13,7 @@ export interface TourRecord {
 }
 
 interface OnboardingState {
-  /** Desfecho da orientação por perfil de demonstração (`userId`). */
+  /** Desfecho da orientação por usuário (`userId`). */
   records: Record<string, TourRecord>
   finish: (userId: string, outcome: TourOutcome) => void
   reset: (userId: string) => void
@@ -56,7 +56,7 @@ export function createOnboardingStore(storage: StateStorage = browserStorage()) 
             return { records }
           }),
       }),
-      { name: "clinica-demo-onboarding", version: 1, storage: createJSONStorage(() => storage), partialize: (state) => ({ records: state.records }) }
+      { name: "villiere-onboarding", version: 2, migrate: () => ({ records: {} }), storage: createJSONStorage(() => storage), partialize: (state) => ({ records: state.records }) }
     )
   )
 }

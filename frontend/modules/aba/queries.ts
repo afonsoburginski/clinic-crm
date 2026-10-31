@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import type { AbaGoalInput, AbaGoalStatusInput, AbaPlanInput, AbaSessionInput, ReasonInput } from "@/domain/schemas"
 import type { AbaPlan, AbaPlanStatus } from "@/domain/types"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
 export const abaKeys = {

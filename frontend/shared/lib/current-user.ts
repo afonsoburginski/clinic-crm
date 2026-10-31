@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { can, type Permission } from "@/domain/permissions"
-import { api } from "@/shared/api/demo-api"
+import { api } from "@/shared/api/api"
 import { hasActiveSession, useSessionStore } from "@/shared/lib/session-store"
 import { useHydrated } from "@/shared/lib/use-hydrated"
 

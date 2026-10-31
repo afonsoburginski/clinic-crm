@@ -1,4 +1,4 @@
-import type { DashboardSummary } from "@/shared/api/demo-api"
+import type { DashboardSummary } from "@/shared/api/api"
 import { formatDuration } from "@/shared/lib/format"
 import { PRO_BG } from "@/shared/ui/atoms/pro-color"
 import { cn } from "@/lib/utils"
