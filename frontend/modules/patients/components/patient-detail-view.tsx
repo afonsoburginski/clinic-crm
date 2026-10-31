@@ -2,21 +2,25 @@
 
 import { CalendarPlus, CalendarX2, PencilLine } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Patient } from "@/domain/types"
 import { AppointmentLine } from "@/modules/scheduling/components/appointment-line"
+import { useAppointmentActionsFor } from "@/modules/scheduling/lib/use-appointment-actions"
 import { formatAge, formatBirthDate, formatDate } from "@/shared/lib/format"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
+import { EntityActionsButton, EntityContextMenu, EntityMenu } from "@/shared/ui/entity-menu"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { usePatient, usePatientAppointments } from "../queries"
+import { patientActions } from "../lib/patient-actions"
+import { usePatient, usePatientAppointments, useSetPatientStatus } from "../queries"
 import { GuardianLinksSection } from "./guardian-links-section"
 import { PatientStatusPill } from "./patient-status-pill"
 
@@ -24,42 +28,57 @@ export function PatientDetailView({ id }: { id: string }) {
   const { data: patient, isLoading, error, refetch } = usePatient(id)
   const canWrite = useCan("patients:write")
   const canSchedule = useCan("appointments:write")
+  const router = useRouter()
+  const setStatus = useSetPatientStatus()
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />
   if (isLoading || !patient) return <ListSkeleton rows={6} />
 
   const displayName = patient.socialName || patient.fullName
 
+  const actions = patientActions(patient, {
+    inDetail: true,
+    onView: () => router.push(`/pacientes/${patient.id}`),
+    onEdit: () => router.push(`/pacientes/${patient.id}/editar`),
+    onSchedule: () => router.push(`/agenda?novo=1&paciente=${patient.id}`),
+    onSetStatus: (status) => setStatus.mutate({ patient, status }),
+  })
+
   return (
     <>
-      <PageHeader
-        back={{ href: "/pacientes", label: "Pacientes" }}
-        leading={<PersonAvatar name={displayName} size="lg" />}
-        title={displayName}
-        badge={<PatientStatusPill status={patient.status} />}
-        description={
-          <>
-            <span className="font-mono">{patient.code}</span> · {formatAge(patient.birthDate)}
-            {patient.socialName && <> · Registro civil: {patient.fullName}</>}
-          </>
-        }
-        actions={
-          <>
-            {canWrite && (
-              <Link href={`/pacientes/${patient.id}/editar`} className={buttonVariants({ variant: "outline" })}>
-                <PencilLine aria-hidden />
-                Editar
-              </Link>
-            )}
-            {canSchedule && patient.status === "active" && (
-              <Link href={`/agenda?novo=1&paciente=${patient.id}`} className={buttonVariants()}>
-                <CalendarPlus aria-hidden />
-                Agendar
-              </Link>
-            )}
-          </>
-        }
-      />
+      <EntityMenu actions={actions}>
+        <EntityContextMenu>
+          <PageHeader
+            back={{ href: "/pacientes", label: "Pacientes" }}
+            leading={<PersonAvatar name={displayName} size="lg" />}
+            title={displayName}
+            badge={<PatientStatusPill status={patient.status} />}
+            description={
+              <>
+                <span className="font-mono">{patient.code}</span> · {formatAge(patient.birthDate)}
+                {patient.socialName && <> · Registro civil: {patient.fullName}</>}
+              </>
+            }
+            actions={
+              <>
+                {canWrite && (
+                  <Link href={`/pacientes/${patient.id}/editar`} className={buttonVariants({ variant: "outline" })}>
+                    <PencilLine aria-hidden />
+                    Editar
+                  </Link>
+                )}
+                {canSchedule && patient.status === "active" && (
+                  <Link href={`/agenda?novo=1&paciente=${patient.id}`} className={buttonVariants()}>
+                    <CalendarPlus aria-hidden />
+                    Agendar
+                  </Link>
+                )}
+                <EntityActionsButton label={`Mais ações de ${displayName}`} size="icon" />
+              </>
+            }
+          />
+        </EntityContextMenu>
+      </EntityMenu>
 
       <Tabs defaultValue="cadastro" className="gap-4">
         <TabsList>
@@ -130,6 +149,7 @@ function PatientSummary({ patient }: { patient: Patient }) {
 
 function PatientAppointments({ patientId }: { patientId: string }) {
   const { data, isLoading, error, refetch } = usePatientAppointments(patientId)
+  const actionsFor = useAppointmentActionsFor()
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />
 
@@ -143,7 +163,7 @@ function PatientAppointments({ patientId }: { patientId: string }) {
             <li key={a.id} className="flex items-center gap-2">
               <span className="w-24 shrink-0 pl-3 text-xs text-muted-foreground tabular-nums">{formatDate(a.start)}</span>
               <div className="min-w-0 flex-1">
-                <AppointmentLine appointment={a} />
+                <AppointmentLine appointment={a} actions={actionsFor(a)} />
               </div>
             </li>
           ))}

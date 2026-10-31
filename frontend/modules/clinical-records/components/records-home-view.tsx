@@ -12,6 +12,7 @@ import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
+import { chartActions } from "../lib/record-actions"
 import { useChartPatients } from "../queries"
 
 type ChartRow = NonNullable<ReturnType<typeof useChartPatients>["data"]>[number]
@@ -102,6 +103,8 @@ export function RecordsHomeView() {
             description: "Pacientes aparecem aqui quando você é o profissional de referência ou tem atendimento agendado.",
           }}
           onRowClick={({ patient }) => router.push(`/prontuarios/${patient.id}`)}
+          rowLabel={({ patient }) => patient.socialName || patient.fullName}
+          rowActions={({ patient }) => chartActions(patient, { onOpen: () => router.push(`/prontuarios/${patient.id}`) })}
         />
       </SectionCard>
     </>

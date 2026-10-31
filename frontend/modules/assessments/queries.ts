@@ -52,3 +52,13 @@ export function useCancelAssessment(id: string) {
     success: "Avaliação cancelada.",
   })
 }
+
+/** Concluir/cancelar a partir da lista: o id vem na chamada (os hooks acima são por avaliação). */
+export function useAssessmentTransitions() {
+  const complete = useApiMutation((id: string) => api.assessments.complete(id), { invalidate: [assessmentKeys.all], success: "Avaliação concluída." })
+  const cancel = useApiMutation(({ id, input }: { id: string; input: ReasonInput }) => api.assessments.cancel(id, input), {
+    invalidate: [assessmentKeys.all],
+    success: "Avaliação cancelada.",
+  })
+  return { complete, cancel }
+}

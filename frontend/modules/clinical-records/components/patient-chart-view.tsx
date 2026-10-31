@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RECORD_KIND_LABELS, RECORD_STATUS_LABELS } from "@/domain/clinical-record"
 import type { ClinicalRecord, ClinicalRecordKind, ClinicalRecordStatus } from "@/domain/types"
+import { useCurrentUser } from "@/shared/lib/current-user"
 import { formatAge, formatDateTime } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
@@ -15,7 +16,8 @@ import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { useChartPatient, useRecords } from "../queries"
+import { recordActions } from "../lib/record-actions"
+import { useChartPatient, useFinalizeRecord, useRecords, useRectifyRecord } from "../queries"
 import { RecordDetailDialog } from "./record-detail-dialog"
 import { RecordFormDialog } from "./record-form-dialog"
 import { RecordStatusPill } from "./record-status-pill"
@@ -71,6 +73,9 @@ export function PatientChartView({ patientId }: { patientId: string }) {
   const records = useRecords(patientId, "all")
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<ClinicalRecord | "new" | null>(null)
+  const { user } = useCurrentUser()
+  const finalize = useFinalizeRecord()
+  const rectify = useRectifyRecord()
 
   if (patientQuery.error) return <ErrorState error={patientQuery.error} onRetry={() => patientQuery.refetch()} />
   if (records.error) return <ErrorState error={records.error} onRetry={() => records.refetch()} />
@@ -115,6 +120,17 @@ export function PatientChartView({ patientId }: { patientId: string }) {
           noun={["registro", "registros"]}
           empty={{ icon: <FileText aria-hidden />, title: "Nenhum registro", description: "Crie uma anamnese, evolução ou documento clínico. Todo registro começa como rascunho." }}
           onRowClick={(r) => setDetailId(r.id)}
+          rowLabel={(r) => r.title}
+          rowActions={(r) =>
+            recordActions(r, {
+              isAuthor: user?.id === r.authorId,
+              onView: () => setDetailId(r.id),
+              onEdit: () => setEditing(r),
+              onFinalize: () => finalize.mutate(r.id),
+              onRectify: (reason) =>
+                rectify.mutate({ id: r.id, input: { reason } }, { onSuccess: (draft) => setEditing(draft) }),
+            })
+          }
         />
       </SectionCard>
 

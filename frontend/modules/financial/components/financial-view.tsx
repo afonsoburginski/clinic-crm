@@ -14,7 +14,8 @@ import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
 import { defaultFinancialState, FILTER_COLUMNS, filtersFromState, searchParamsFromState } from "../lib/filters"
-import { useFinancialReport, useFinancialSearch } from "../queries"
+import { financialActions } from "../lib/financial-actions"
+import { useCancelEntryRow, useFinancialReport, useFinancialSearch } from "../queries"
 import { DistributionChart } from "./distribution-chart"
 import { EntryDetailDialog } from "./entry-detail-dialog"
 import { EntryFormDialog } from "./entry-form-dialog"
@@ -34,6 +35,8 @@ export function FinancialView() {
   const [tableState, setTableState] = useState<DataTableState>(defaultState)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<FinancialEntry | "new" | null>(null)
+  const [template, setTemplate] = useState<FinancialEntry | null>(null)
+  const cancelEntry = useCancelEntryRow()
 
   const filters = useMemo(() => filtersFromState(tableState), [tableState])
   const params = useMemo(() => searchParamsFromState(tableState), [tableState])
@@ -109,6 +112,16 @@ export function FinancialView() {
             action: newEntry,
           }}
           onRowClick={({ entry }) => setDetailId(entry.id)}
+          rowLabel={({ entry }) => entry.description}
+          rowActions={(row) =>
+            financialActions(row, {
+              onView: () => setDetailId(row.entry.id),
+              onPay: () => setDetailId(row.entry.id),
+              onEdit: () => setEditing(row.entry),
+              onDuplicate: () => setTemplate(row.entry),
+              onCancel: (reason) => cancelEntry.mutate({ id: row.entry.id, input: { reason } }),
+            })
+          }
         />
       </SectionCard>
 
@@ -125,6 +138,7 @@ export function FinancialView() {
           }}
         />
       )}
+      {template && <EntryFormDialog template={template} defaultCompetence={filters.competence ?? today.slice(0, 7)} onClose={() => setTemplate(null)} />}
       {editing && (
         <EntryFormDialog
           entry={editing === "new" ? undefined : editing}

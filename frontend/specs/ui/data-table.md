@@ -2,7 +2,7 @@
 
 Implementação: `shared/ui/data-table/` (`data-table.tsx`, `data-table-{toolbar,pagination,columns-menu,views}.tsx`, `filters/filter-controls.tsx`, `columns.tsx`, `preferences.ts`, `lib/*.ts`), `shared/ui/date-range-picker/`, `shared/api/table-preferences-{api,mappers}.ts`.
 Backend: `backend/specs/table-preferences.spec.md` (visões e preferências por usuário no PostgreSQL).
-Testes: `shared/ui/data-table/lib/__tests__/*.test.ts` (filtros, faixa, paginação, moeda, visões), `shared/ui/date-range-picker/lib/__tests__/range.test.ts` (presets, intervalo, fuso), `shared/ui/data-table/__tests__/data-table-contract.test.ts` (varre `modules/` atrás de `tableKey` válido/único), `shared/api/__tests__/table-preferences-http.test.ts`. Sem navegador.
+Testes: `shared/ui/data-table/lib/__tests__/*.test.ts` (filtros, faixa, paginação, moeda, visões), `shared/ui/date-range-picker/lib/__tests__/range.test.ts` (presets, intervalo, fuso), `shared/ui/data-table/__tests__/data-table-contract.test.ts` (varre `modules/` atrás de `tableKey` válido/único) e `column-actions.test.ts` (menu do cabeçalho), `shared/api/__tests__/table-preferences-http.test.ts`. Sem navegador.
 
 Toda lista de registros do app usa **um** componente, `DataTable` (`@tanstack/react-table` v8), dentro de um `SectionCard bodyClassName="p-0"`. Não há `<Table>` montada à mão nas telas (a matriz papel × permissão é a única exceção: não é lista de registros).
 
@@ -23,7 +23,7 @@ Toda lista de registros do app usa **um** componente, `DataTable` (`@tanstack/re
 - `filter`: filtro declarativo (abaixo); `searchValue`: texto da coluna na busca global (sem ele vale o valor do acessor quando for texto/número);
 - `exportValue`: valor da coluna para exportar listas em modo cliente (`onRowsChange`). O XLSX do Financeiro não usa este campo: ele sai das linhas da API já filtradas (`GET /financial/export`, RN-FIN-015).
 
-Coluna de ações da linha (editar, redefinir…): `actionsColumn(render)` (`columns.tsx`). **`renderRowActions`, `rowMenu` e `renderHeaderMenu` são pontos de extensão reservados ao menu de contexto** (botão "⋯", clique direito, menu do cabeçalho) e ainda não são usados pelas telas.
+Ações da linha e do cabeçalho: `rowActions` (coluna final "⋯" fixa à direita + clique direito na linha, mesma lista) e o menu de cada cabeçalho de coluna (ordenar, filtrar, ocultar, mostrar todas), ambos descritos em [`context-menu.md`](context-menu.md). `actionsColumn(render)` (`columns.tsx`) segue disponível para botões avulsos.
 
 ## Filtros
 

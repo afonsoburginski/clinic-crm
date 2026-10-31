@@ -63,6 +63,8 @@ Convenção de dialogs, alertdialogs e sheets (tamanhos, anatomia Header/Body/Fo
 
 Tabelas de dados e seletor de período (`DataTable` único com filtros, paginação client/server, visões salvas por usuário no PostgreSQL e `DateRangePicker`): [`ui/data-table.md`](ui/data-table.md).
 
+Menu de contexto (clique direito) e botão "⋯" das entidades, gerados da mesma lista de ações com permissão, confirmação de ações destrutivas e menu de cabeçalho de coluna: [`ui/context-menu.md`](ui/context-menu.md).
+
 ## Fora do escopo desta entrega
 
 Fase 6 (hardening e produção) e portal SvelteKit.

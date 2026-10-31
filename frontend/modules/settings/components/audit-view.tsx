@@ -10,6 +10,7 @@ import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
+import { auditActions } from "../lib/audit-actions"
 import { useAuditLog } from "../queries"
 
 const RESOURCE_LABELS: Record<string, string> = {
@@ -139,6 +140,8 @@ export function AuditView() {
           onRetry={() => query.refetch()}
           noun={["registro", "registros"]}
           empty={{ title: "Nenhum evento", description: "Faça uma alteração no sistema para ver o registro aqui." }}
+          rowLabel={(e) => e.summary}
+          rowActions={(e, { expanded, toggleExpanded }) => auditActions(e, { detailsOpen: expanded, onToggleDetails: toggleExpanded })}
           renderExpanded={(e) => (e.changes && Object.keys(e.changes).length ? <AuditChanges changes={e.changes} /> : null)}
         />
       </SectionCard>

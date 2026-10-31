@@ -8,6 +8,7 @@ import type { Appointment } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { formatTime, WEEKDAY_SHORT } from "@/shared/lib/format"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
+import { EntityContextMenu, EntityMenu, type EntityAction } from "@/shared/ui/entity-menu"
 
 import { todayKey } from "../lib/calendar"
 import { useAppointmentLabels } from "./appointment-line"
@@ -20,12 +21,15 @@ export function AgendaMonthGrid({
   appointments,
   onSelect,
   onOpenDay,
+  actionsFor,
 }: {
   weeks: string[][]
   monthKey: string
   appointments: Appointment[]
   onSelect: (a: Appointment) => void
   onOpenDay: (dateKey: string) => void
+  /** Ações de cada item (clique direito e Shift+F10); o "⋯" equivalente fica no painel de detalhe. */
+  actionsFor?: (a: Appointment) => EntityAction[]
 }) {
   const labels = useAppointmentLabels()
   const today = todayKey()
@@ -87,21 +91,32 @@ export function AgendaMonthGrid({
                   <ul className="flex flex-col gap-0.5">
                     {items.slice(0, MAX_PER_DAY).map((a) => {
                       const pro = labels.professional.get(a.professionalId)
+                      const buttonProps = {
+                        type: "button" as const,
+                        onClick: () => onSelect(a),
+                        className:
+                          "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      }
+                      const content = (
+                        <>
+                          {a.kind === "block" ? (
+                            <Ban className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                          ) : (
+                            pro && <ProDot colorIndex={pro.colorIndex} />
+                          )}
+                          <span className="font-mono tabular-nums text-muted-foreground">{formatTime(a.start)}</span>
+                          <span className="truncate text-foreground">{labels.titleOf(a)}</span>
+                        </>
+                      )
                       return (
                         <li key={a.id}>
-                          <button
-                            type="button"
-                            onClick={() => onSelect(a)}
-                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                          >
-                            {a.kind === "block" ? (
-                              <Ban className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-                            ) : (
-                              pro && <ProDot colorIndex={pro.colorIndex} />
-                            )}
-                            <span className="font-mono tabular-nums text-muted-foreground">{formatTime(a.start)}</span>
-                            <span className="truncate text-foreground">{labels.titleOf(a)}</span>
-                          </button>
+                          {actionsFor ? (
+                            <EntityMenu actions={actionsFor(a)}>
+                              <EntityContextMenu render={<button {...buttonProps} />}>{content}</EntityContextMenu>
+                            </EntityMenu>
+                          ) : (
+                            <button {...buttonProps}>{content}</button>
+                          )}
                         </li>
                       )
                     })}

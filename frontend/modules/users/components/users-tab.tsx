@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyRound, Pencil, Plus, UserCheck, UserX } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -10,11 +10,11 @@ import { useCurrentUser } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ActivePill, StatePill } from "@/shared/ui/atoms/state-pill"
-import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
-import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
+import { userActions } from "../lib/user-actions"
 import { useRoles, useSetUserActive, useUsers } from "../queries"
 import { PasswordResetDialog } from "./password-reset-dialog"
 import { UserFormDialog } from "./user-form-dialog"
@@ -32,7 +32,6 @@ export function UsersTab() {
   const setActive = useSetUserActive()
   const [editing, setEditing] = useState<{ user?: UserAccount } | null>(null)
   const [passwordFor, setPasswordFor] = useState<UserAccount | null>(null)
-  const [deactivating, setDeactivating] = useState<UserAccount | null>(null)
 
   const roleLabel = useMemo(
     () => new Map((roles.data ?? []).map((role) => [role.key as string, role.label])),
@@ -93,34 +92,9 @@ export function UsersTab() {
         meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (account) => (account.active ? "active" : "inactive") } },
         cell: ({ row: { original: account } }) => <ActivePill active={account.active} />,
       },
-      actionsColumn<UserAccount>((account) => (
-        <PermissionGate permission="users:manage">
-          <Button variant="ghost" size="icon-sm" aria-label={`Editar ${account.name}`} onClick={() => setEditing({ user: account })}>
-            <Pencil aria-hidden />
-          </Button>
-          <Button variant="ghost" size="icon-sm" aria-label={`Redefinir a senha de ${account.name}`} onClick={() => setPasswordFor(account)}>
-            <KeyRound aria-hidden />
-          </Button>
-          {account.active ? (
-            <Button variant="ghost" size="icon-sm" aria-label={`Desativar ${account.name}`} onClick={() => setDeactivating(account)}>
-              <UserX aria-hidden />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Reativar ${account.name}`}
-              disabled={setActive.isPending}
-              onClick={() => setActive.mutate({ id: account.id, active: true })}
-            >
-              <UserCheck aria-hidden />
-            </Button>
-          )}
-        </PermissionGate>
-      )),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- labelOf deriva de roleLabel
-    [roleLabel, roles.data, professional, me?.id, setActive.isPending]
+    [roleLabel, roles.data, professional, me?.id]
   )
 
   return (
@@ -149,23 +123,21 @@ export function UsersTab() {
         error={users.error}
         onRetry={() => users.refetch()}
         noun={["usuário", "usuários"]}
+        rowLabel={(account) => account.name}
+        rowActions={(account) =>
+          userActions(account, {
+            isSelf: me?.id === account.id,
+            onEdit: () => setEditing({ user: account }),
+            onEditRoles: () => setEditing({ user: account }),
+            onResetPassword: () => setPasswordFor(account),
+            onSetActive: (active) => setActive.mutate({ id: account.id, active }),
+          })
+        }
         empty={{ title: "Nenhum usuário cadastrado" }}
       />
 
       {editing && <UserFormDialog user={editing.user} roles={roles.data} onClose={() => setEditing(null)} />}
       {passwordFor && <PasswordResetDialog user={passwordFor} onClose={() => setPasswordFor(null)} />}
-      <ConfirmDialog
-        open={!!deactivating}
-        onOpenChange={(open) => !open && setDeactivating(null)}
-        title={`Desativar ${deactivating?.name ?? "usuário"}?`}
-        description="As sessões abertas são encerradas e o acesso é bloqueado. O histórico e a auditoria continuam apontando para este usuário, e ele pode ser reativado depois. A clínica precisa manter ao menos um administrador ativo."
-        confirmLabel="Desativar"
-        destructive
-        pending={setActive.isPending}
-        onConfirm={() => {
-          if (deactivating) setActive.mutate({ id: deactivating.id, active: false }, { onSettled: () => setDeactivating(null) })
-        }}
-      />
     </SectionCard>
   )
 }

@@ -8,6 +8,7 @@ import { formatTime, relativeDayLabel } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
 import { StatusBadge } from "@/shared/ui/atoms/status-badge"
+import { EntityActionsButton, EntityContextMenu, EntityMenu, type EntityAction } from "@/shared/ui/entity-menu"
 
 export function useAppointmentLabels() {
   const lookups = useLookups()
@@ -25,10 +26,13 @@ export function AppointmentLine({
   appointment,
   showDay = false,
   onSelect,
+  actions,
 }: {
   appointment: Appointment
   showDay?: boolean
   onSelect?: (a: Appointment) => void
+  /** Menu "⋯" e clique direito da linha (ex.: `useAppointmentActionsFor()(appointment)`). */
+  actions?: EntityAction[]
 }) {
   const labels = useAppointmentLabels()
   const pro = labels.professional.get(appointment.professionalId)
@@ -36,7 +40,7 @@ export function AppointmentLine({
   const room = appointment.roomId ? labels.room.get(appointment.roomId) : undefined
   const Comp = onSelect ? "button" : "div"
 
-  return (
+  const line = (
     <Comp
       {...(onSelect ? { type: "button" as const, onClick: () => onSelect(appointment) } : {})}
       className={cn(
@@ -60,5 +64,15 @@ export function AppointmentLine({
       </div>
       {appointment.kind === "appointment" && <StatusBadge status={appointment.status} className="hidden sm:inline-flex" />}
     </Comp>
+  )
+
+  if (!actions) return line
+  return (
+    <EntityMenu actions={actions}>
+      <EntityContextMenu className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">{line}</div>
+        <EntityActionsButton label={`Ações do agendamento de ${labels.titleOf(appointment)}`} className="mr-1 shrink-0" />
+      </EntityContextMenu>
+    </EntityMenu>
   )
 }

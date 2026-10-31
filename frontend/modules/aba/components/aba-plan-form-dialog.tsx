@@ -16,7 +16,8 @@ import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
 import { useCreatePlan, useUpdatePlan } from "../queries"
 
-export function AbaPlanFormDialog({ plan, onClose, onCreated }: { plan?: AbaPlan; onClose: () => void; onCreated?: (id: string) => void }) {
+/** `plan` edita; `template` cria um plano novo já preenchido com título, responsável e datas de outro (duplicar). */
+export function AbaPlanFormDialog({ plan, template, onClose, onCreated }: { plan?: AbaPlan; template?: AbaPlan; onClose: () => void; onCreated?: (id: string) => void }) {
   const { user } = useCurrentUser()
   const { patients, professionals } = useLookups()
   const create = useCreatePlan()
@@ -24,11 +25,11 @@ export function AbaPlanFormDialog({ plan, onClose, onCreated }: { plan?: AbaPlan
   const form = useForm<AbaPlanInput>({
     resolver: zodResolver(abaPlanSchema),
     defaultValues: {
-      patientId: plan?.patientId ?? "",
-      title: plan?.title ?? "",
+      patientId: (plan ?? template)?.patientId ?? "",
+      title: plan ? plan.title : template ? `${template.title} (cópia)` : "",
       startDate: plan?.startDate ?? clinicDateKey(new Date()),
       reviewDate: plan?.reviewDate ?? "",
-      responsibleProfessionalId: plan?.responsibleProfessionalId ?? user?.professionalId ?? "",
+      responsibleProfessionalId: (plan ?? template)?.responsibleProfessionalId ?? user?.professionalId ?? "",
     },
   })
   const errors = form.formState.errors

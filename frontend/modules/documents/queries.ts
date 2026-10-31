@@ -73,3 +73,11 @@ export function useRevokeRelease(id: string) {
     success: "Liberação revogada.",
   })
 }
+
+/** Emitir/arquivar a partir da lista: o id vem na chamada (`useSetDocumentStatus` é por documento). */
+export function useSetDocumentStatusRow() {
+  return useApiMutation(({ id, to }: { id: string; to: DocumentStatus }) => api.documents.setStatus(id, to), {
+    invalidate: [documentKeys.all],
+    success: (_, vars) => (vars.to === "issued" ? "Documento emitido." : "Documento arquivado."),
+  })
+}

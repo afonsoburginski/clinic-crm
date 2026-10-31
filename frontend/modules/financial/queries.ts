@@ -93,3 +93,11 @@ export function useCancelEntry(id: string) {
     success: "Lançamento cancelado.",
   })
 }
+
+/** Cancelar a partir da lista: o id vem na chamada (`useCancelEntry` é por lançamento). */
+export function useCancelEntryRow() {
+  return useApiMutation(({ id, input }: { id: string; input: ReasonInput }) => api.financial.cancel(id, input), {
+    invalidate: [financialKeys.all],
+    success: "Lançamento cancelado.",
+  })
+}

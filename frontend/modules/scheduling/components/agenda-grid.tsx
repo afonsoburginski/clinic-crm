@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { useLookups } from "@/shared/lib/lookups"
 import { PRO_SURFACE } from "@/shared/ui/atoms/pro-color"
 import { STATUS_DOT } from "@/shared/ui/atoms/status-badge"
+import { EntityContextMenu, EntityMenu, type EntityAction } from "@/shared/ui/entity-menu"
 
 import { dayLabel, layoutDay, minutesToTime, todayKey } from "../lib/calendar"
 
@@ -35,11 +36,14 @@ export function AgendaGrid({
   appointments,
   onSelect,
   onCreateAt,
+  actionsFor,
 }: {
   days: string[]
   appointments: Appointment[]
   onSelect: (appointment: Appointment) => void
   onCreateAt?: (dateKey: string, time: string) => void
+  /** Ações de cada card (clique direito e Shift+F10); o "⋯" equivalente fica no painel de detalhe. */
+  actionsFor?: (appointment: Appointment) => EntityAction[]
 }) {
   const nowMinutes = useNowMinutes()
   const today = todayKey()
@@ -93,6 +97,7 @@ export function AgendaGrid({
               nowMinutes={key === today ? nowMinutes : null}
               onSelect={onSelect}
               onCreateAt={onCreateAt}
+              actionsFor={actionsFor}
             />
           ))}
         </div>
@@ -107,12 +112,14 @@ function DayColumn({
   nowMinutes,
   onSelect,
   onCreateAt,
+  actionsFor,
 }: {
   dateKey: string
   appointments: Appointment[]
   nowMinutes: number | null
   onSelect: (appointment: Appointment) => void
   onCreateAt?: (dateKey: string, time: string) => void
+  actionsFor?: (appointment: Appointment) => EntityAction[]
 }) {
   const gridStart = GRID_START_HOUR * 60
   const gridEnd = GRID_END_HOUR * 60
@@ -161,6 +168,7 @@ function DayColumn({
             }}
             compact={height < 40}
             onSelect={onSelect}
+            actions={actionsFor?.(item.appointment)}
           />
         )
       })}
@@ -173,11 +181,13 @@ function AppointmentBlock({
   style,
   compact,
   onSelect,
+  actions,
 }: {
   appointment: Appointment
   style: React.CSSProperties
   compact: boolean
   onSelect: (appointment: Appointment) => void
+  actions?: EntityAction[]
 }) {
   const lookups = useLookups()
   const professional = lookups.professional.get(appointment.professionalId)
@@ -188,20 +198,16 @@ function AppointmentBlock({
   const time = `${clinicTimeKey(appointment.start)}–${clinicTimeKey(appointment.end)}`
   const title = isBlock ? appointment.title : (patient?.socialName ?? patient?.fullName ?? "Paciente")
 
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(appointment)}
-      style={style}
-      aria-label={`${title}, ${time}${service ? `, ${service.name}` : ""}${professional ? `, ${professional.name}` : ""}`}
-      className={cn(
-        "absolute z-[5] flex flex-col overflow-hidden rounded-md px-2 py-1 text-left ring-1 ring-inset transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring",
-        isBlock
-          ? "bg-[repeating-linear-gradient(135deg,var(--muted)_0_6px,transparent_6px_12px)] text-muted-foreground ring-border"
-          : PRO_SURFACE[(professional?.colorIndex ?? 0) % 6],
-        inactive && "opacity-45"
-      )}
-    >
+  const className = cn(
+    "absolute z-[5] flex flex-col overflow-hidden rounded-md px-2 py-1 text-left ring-1 ring-inset transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring",
+    isBlock
+      ? "bg-[repeating-linear-gradient(135deg,var(--muted)_0_6px,transparent_6px_12px)] text-muted-foreground ring-border"
+      : PRO_SURFACE[(professional?.colorIndex ?? 0) % 6],
+    inactive && "opacity-45"
+  )
+  const label = `${title}, ${time}${service ? `, ${service.name}` : ""}${professional ? `, ${professional.name}` : ""}`
+  const content = (
+    <>
       <span className="flex min-w-0 items-center gap-1.5">
         {isBlock ? (
           <Lock className="size-3 shrink-0" aria-hidden />
@@ -217,6 +223,14 @@ function AppointmentBlock({
           {service && <span className="truncate text-[11px] text-muted-foreground">{service.name}</span>}
         </>
       )}
-    </button>
+    </>
+  )
+  const buttonProps = { type: "button" as const, onClick: () => onSelect(appointment), style, "aria-label": label, className }
+
+  if (!actions) return <button {...buttonProps}>{content}</button>
+  return (
+    <EntityMenu actions={actions}>
+      <EntityContextMenu render={<button {...buttonProps} />}>{content}</EntityContextMenu>
+    </EntityMenu>
   )
 }

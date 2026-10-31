@@ -16,7 +16,8 @@ import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { PATIENT_STATUS_LABELS, usePatients } from "../queries"
+import { patientActions } from "../lib/patient-actions"
+import { PATIENT_STATUS_LABELS, usePatients, useSetPatientStatus } from "../queries"
 import { PatientStatusPill } from "./patient-status-pill"
 
 const STATUS_OPTIONS = (Object.keys(PATIENT_STATUS_LABELS) as PatientStatus[]).map((value) => ({ value, label: PATIENT_STATUS_LABELS[value] }))
@@ -27,6 +28,7 @@ export function PatientsListView() {
   const canReadAll = useCan("patients:read")
   const { professionals, professional } = useLookups()
   const { data, isLoading, error, refetch, isPlaceholderData } = usePatients({ status: "all" })
+  const setStatus = useSetPatientStatus()
 
   const columns = useMemo<DataTableColumn<Patient>[]>(
     () => [
@@ -151,6 +153,15 @@ export function PatientsListView() {
           noun={["paciente", "pacientes"]}
           empty={{ icon: <UsersRound aria-hidden />, title: "Nenhum paciente cadastrado" }}
           onRowClick={(p) => router.push(`/pacientes/${p.id}`)}
+          rowLabel={(p) => p.socialName || p.fullName}
+          rowActions={(p) =>
+            patientActions(p, {
+              onView: () => router.push(`/pacientes/${p.id}`),
+              onEdit: () => router.push(`/pacientes/${p.id}/editar`),
+              onSchedule: () => router.push(`/agenda?novo=1&paciente=${p.id}`),
+              onSetStatus: (status) => setStatus.mutate({ patient: p, status }),
+            })
+          }
         />
       </SectionCard>
     </>

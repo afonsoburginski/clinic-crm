@@ -65,3 +65,13 @@ export function useVoidSession() {
     success: "Sessão anulada.",
   })
 }
+
+/** Ativar/encerrar a partir da lista: o id vem na chamada (os hooks acima são por plano). */
+export function usePlanTransitions() {
+  const activate = useApiMutation((id: string) => api.aba.activatePlan(id), { invalidate: [abaKeys.all], success: "Plano ativado." })
+  const close = useApiMutation(({ id, input }: { id: string; input: ReasonInput }) => api.aba.closePlan(id, input), {
+    invalidate: [abaKeys.all],
+    success: "Plano encerrado.",
+  })
+  return { activate, close }
+}

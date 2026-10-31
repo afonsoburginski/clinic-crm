@@ -69,7 +69,10 @@ export function DataTableToolbar<T>({
             shellClassName="w-full sm:max-w-xs"
           />
           {specs.map((spec) => (
-            <FilterControl key={spec.id} config={spec.config} value={filters[spec.id]} counts={counts[spec.id]} onChange={(value) => onFilterChange(spec.id, value)} />
+            // `data-filter-id` deixa o menu do cabeçalho ("Filtrar por esta coluna") achar o controle certo.
+            <span key={spec.id} data-filter-id={spec.id} className="contents">
+              <FilterControl config={spec.config} value={filters[spec.id]} counts={counts[spec.id]} onChange={(value) => onFilterChange(spec.id, value)} />
+            </span>
           ))}
         </ToolbarGroup>
         {trailing && <ToolbarGroup align="end">{trailing}</ToolbarGroup>}

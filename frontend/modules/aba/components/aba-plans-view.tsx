@@ -15,7 +15,8 @@ import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { useAbaPlans } from "../queries"
+import { abaPlanActions } from "../lib/aba-plan-actions"
+import { useAbaPlans, usePlanTransitions } from "../queries"
 import { AbaPlanFormDialog } from "./aba-plan-form-dialog"
 import { PlanStatusPill } from "./aba-status-pill"
 
@@ -25,6 +26,9 @@ export function AbaPlansView() {
   const router = useRouter()
   const { patient, professional, professionals } = useLookups()
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<AbaPlan | null>(null)
+  const [template, setTemplate] = useState<AbaPlan | null>(null)
+  const { activate, close } = usePlanTransitions()
   const { data, isLoading, error, refetch } = useAbaPlans("all")
 
   const columns = useMemo<DataTableColumn<AbaPlan>[]>(
@@ -128,10 +132,22 @@ export function AbaPlansView() {
           noun={["plano", "planos"]}
           empty={{ icon: <Target aria-hidden />, title: "Nenhum plano cadastrado" }}
           onRowClick={(plan) => router.push(`/aba/${plan.id}`)}
+          rowLabel={(plan) => plan.title}
+          rowActions={(plan) =>
+            abaPlanActions(plan, {
+              onView: () => router.push(`/aba/${plan.id}`),
+              onEdit: () => setEditing(plan),
+              onDuplicate: () => setTemplate(plan),
+              onActivate: () => activate.mutate(plan.id),
+              onClose: (reason) => close.mutate({ id: plan.id, input: { reason } }),
+            })
+          }
         />
       </SectionCard>
 
       {creating && <AbaPlanFormDialog onClose={() => setCreating(false)} onCreated={(id) => router.push(`/aba/${id}`)} />}
+      {template && <AbaPlanFormDialog template={template} onClose={() => setTemplate(null)} onCreated={(id) => router.push(`/aba/${id}`)} />}
+      {editing && <AbaPlanFormDialog plan={editing} onClose={() => setEditing(null)} />}
     </>
   )
 }

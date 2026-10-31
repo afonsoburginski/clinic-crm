@@ -14,8 +14,10 @@ import { useCurrentUser } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
 import { StatusBadge } from "@/shared/ui/atoms/status-badge"
+import { EntityActionsButton, EntityMenu } from "@/shared/ui/entity-menu"
 import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
 
+import { useAppointmentActionsFor } from "../lib/use-appointment-actions"
 import { useChangeStatus, useSettings } from "../queries"
 
 export function AppointmentDetailSheet({
@@ -42,6 +44,8 @@ function Detail({ appointment, onClose, onReschedule }: { appointment: Appointme
   const settings = useSettings()
   const changeStatus = useChangeStatus()
   const [cancelOpen, setCancelOpen] = useState(false)
+  // O mesmo menu do clique direito na agenda; "Ver detalhes" não aparece aqui porque o painel já está aberto.
+  const actionsFor = useAppointmentActionsFor({ onReschedule })
 
   const professional = lookups.professional.get(appointment.professionalId)
   const patient = appointment.patientId ? lookups.patient.get(appointment.patientId) : undefined
@@ -86,6 +90,9 @@ function Detail({ appointment, onClose, onReschedule }: { appointment: Appointme
       <SheetHeader className="gap-2">
         <div className="flex items-center gap-2">
           {isBlock ? <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Bloqueio de agenda</span> : <StatusBadge status={appointment.status} />}
+          <EntityMenu actions={actionsFor(appointment)}>
+            <EntityActionsButton label="Mais ações do agendamento" size="icon-xs" className="ml-auto" />
+          </EntityMenu>
         </div>
         <SheetTitle className="text-xl text-balance">{isBlock ? appointment.title : (patient?.socialName ?? patient?.fullName ?? "Paciente")}</SheetTitle>
         <SheetDescription>

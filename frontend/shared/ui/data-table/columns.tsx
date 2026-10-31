@@ -2,7 +2,7 @@ import type { DataTableColumn } from "./data-table"
 
 /**
  * Coluna de ações da linha (botões editar, redefinir…): sem ordenação, sempre visível, alinhada à direita.
- * Não confundir com `renderRowActions` do DataTable, reservado ao menu "⋯"/contexto compartilhado.
+ * Não confundir com `rowActions` do DataTable, que gera o menu "⋯"/clique direito compartilhado.
  */
 export function actionsColumn<T>(render: (row: T) => React.ReactNode, { id = "actions", label = "Ações" }: { id?: string; label?: string } = {}): DataTableColumn<T> {
   return {

@@ -8,13 +8,15 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ASSESSMENT_STATUS_LABELS } from "@/domain/assessment"
 import type { Assessment, AssessmentStatus } from "@/domain/types"
+import { useCurrentUser } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { useAssessments } from "../queries"
+import { assessmentActions } from "../lib/assessment-actions"
+import { useAssessments, useAssessmentTransitions } from "../queries"
 import { AssessmentFormDialog } from "./assessment-form-dialog"
 import { AssessmentStatusPill } from "./assessment-status-pill"
 
@@ -26,6 +28,8 @@ export function AssessmentsListView() {
   const router = useRouter()
   const { patient, professional, professionals } = useLookups()
   const [creating, setCreating] = useState(false)
+  const { user } = useCurrentUser()
+  const { complete, cancel } = useAssessmentTransitions()
   const { data, isLoading, error, refetch } = useAssessments("all")
 
   const columns = useMemo<DataTableColumn<Assessment>[]>(
@@ -117,6 +121,15 @@ export function AssessmentsListView() {
           noun={["avaliação", "avaliações"]}
           empty={{ icon: <ClipboardCheck aria-hidden />, title: "Nenhuma avaliação cadastrada" }}
           onRowClick={(a) => router.push(`/avaliacoes/${a.id}`)}
+          rowLabel={(a) => a.title}
+          rowActions={(a) =>
+            assessmentActions(a, {
+              onView: () => router.push(`/avaliacoes/${a.id}`),
+              isResponsible: !!user?.professionalId && user.professionalId === a.responsibleProfessionalId,
+              onComplete: () => complete.mutate(a.id),
+              onCancel: (reason) => cancel.mutate({ id: a.id, input: { reason } }),
+            })
+          }
         />
       </SectionCard>
 

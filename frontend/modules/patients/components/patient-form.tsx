@@ -18,24 +18,8 @@ import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
+import { patientToInput } from "../lib/patient-input"
 import { PATIENT_STATUS_LABELS, usePossibleDuplicates, useSavePatient } from "../queries"
-
-function toFormValues(p?: Patient): PatientInput {
-  return {
-    fullName: p?.fullName ?? "",
-    socialName: p?.socialName ?? "",
-    birthDate: p?.birthDate ?? "",
-    document: p?.document ?? "",
-    phone: p?.phone ?? "",
-    email: p?.email ?? "",
-    address: p?.address ?? "",
-    status: p?.status ?? "active",
-    mainProfessionalId: p?.mainProfessionalId ?? "",
-    consentData: p?.consentData ?? false,
-    consentImage: p?.consentImage ?? false,
-    administrativeNotes: p?.administrativeNotes ?? "",
-  }
-}
 
 export function PatientForm({ patient }: { patient?: Patient }) {
   const router = useRouter()
@@ -46,7 +30,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
     control,
     handleSubmit,
     formState: { errors, isDirty },
-  } = useForm<PatientInput>({ resolver: zodResolver(patientSchema), defaultValues: toFormValues(patient) })
+  } = useForm<PatientInput>({ resolver: zodResolver(patientSchema), defaultValues: patientToInput(patient) })
 
   const [fullName, birthDate, document] = useWatch({ control, name: ["fullName", "birthDate", "document"] })
   const deferredName = useDeferredValue(fullName)

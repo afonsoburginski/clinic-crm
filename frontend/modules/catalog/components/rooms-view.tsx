@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { DoorOpen, Pencil, Plus, Users } from "lucide-react"
+import { DoorOpen, Plus, Users } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
@@ -14,11 +14,12 @@ import type { Room } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { ActivePill, StatePill } from "@/shared/ui/atoms/state-pill"
-import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
+import { copyName, roomActions, roomToInput } from "../lib/service-actions"
 import { useSaveRoom } from "../queries"
 
 const EXCLUSIVE_OPTIONS = [
@@ -33,7 +34,8 @@ const STATUS_OPTIONS = [
 export function RoomsView() {
   const { rooms, isLoading } = useLookups()
   const canManage = useCan("rooms:manage")
-  const [editing, setEditing] = useState<{ item?: Room } | null>(null)
+  const [editing, setEditing] = useState<{ item?: Room; template?: Room } | null>(null)
+  const saveRoom = useSaveRoom()
 
   const columns = useMemo<DataTableColumn<Room>[]>(
     () => [
@@ -84,17 +86,8 @@ export function RoomsView() {
         meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (r) => (r.active ? "active" : "inactive") } },
         cell: ({ row: { original: r } }) => <ActivePill active={r.active} />,
       },
-      ...(canManage
-        ? [
-            actionsColumn<Room>((r) => (
-              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${r.name}`} onClick={() => setEditing({ item: r })}>
-                <Pencil aria-hidden />
-              </Button>
-            )),
-          ]
-        : []),
     ],
-    [canManage]
+    []
   )
 
   return (
@@ -124,25 +117,33 @@ export function RoomsView() {
           searchPlaceholder="Nome ou observação"
           isLoading={isLoading}
           noun={["sala", "salas"]}
+          rowLabel={(r) => r.name}
+          rowActions={(r) =>
+            roomActions(r, {
+              onEdit: () => setEditing({ item: r }),
+              onDuplicate: () => setEditing({ template: r }),
+              onSetActive: (active) => saveRoom.mutate({ input: roomToInput(r, { active }), id: r.id }),
+            })
+          }
           empty={{ icon: <DoorOpen aria-hidden />, title: "Nenhuma sala cadastrada" }}
         />
       </SectionCard>
 
-      {editing && <RoomDialog room={editing.item} onClose={() => setEditing(null)} />}
+      {editing && <RoomDialog room={editing.item} template={editing.template} onClose={() => setEditing(null)} />}
     </>
   )
 }
 
-function RoomDialog({ room, onClose }: { room?: Room; onClose: () => void }) {
+function RoomDialog({ room, template, onClose }: { room?: Room; template?: Room; onClose: () => void }) {
   const save = useSaveRoom()
   const form = useForm<RoomInput>({
     resolver: zodResolver(roomSchema) as never,
     defaultValues: {
-      name: room?.name ?? "",
-      capacity: room?.capacity ?? 3,
-      exclusive: room?.exclusive ?? true,
-      active: room?.active ?? true,
-      notes: room?.notes ?? "",
+      name: room ? room.name : template ? copyName(template.name) : "",
+      capacity: (room ?? template)?.capacity ?? 3,
+      exclusive: (room ?? template)?.exclusive ?? true,
+      active: (room ?? template)?.active ?? true,
+      notes: (room ?? template)?.notes ?? "",
     },
   })
   const { errors } = form.formState

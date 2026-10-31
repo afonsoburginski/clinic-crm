@@ -19,8 +19,11 @@ import { useClinicalDocumentRecords, useSaveDocument } from "../queries"
 
 const CLASSES: DocumentClassification[] = ["clinical", "administrative", "financial"]
 
-/** Cria um documento em rascunho ou edita o rascunho existente (classificação e paciente não mudam). */
-export function DocumentFormDialog({ document, onClose }: { document?: PatientDocument; onClose: () => void }) {
+/**
+ * Cria um documento em rascunho ou edita o rascunho existente (classificação e paciente não mudam).
+ * `template` abre a criação já preenchida com os dados de outro rascunho (duplicar).
+ */
+export function DocumentFormDialog({ document, template, onClose }: { document?: PatientDocument; template?: PatientDocument; onClose: () => void }) {
   const { user } = useCurrentUser()
   const { patients } = useLookups()
   const save = useSaveDocument(document?.id)
@@ -29,12 +32,12 @@ export function DocumentFormDialog({ document, onClose }: { document?: PatientDo
   const form = useForm<DocumentInput>({
     resolver: zodResolver(documentSchema),
     defaultValues: {
-      patientId: document?.patientId ?? "",
-      title: document?.title ?? "",
-      type: document?.type ?? "",
-      classification: document?.classification ?? writable[0] ?? "administrative",
-      clinicalRecordId: document?.clinicalRecordId ?? "",
-      notes: document?.notes ?? "",
+      patientId: (document ?? template)?.patientId ?? "",
+      title: document ? document.title : template ? `${template.title} (cópia)` : "",
+      type: (document ?? template)?.type ?? "",
+      classification: (document ?? template)?.classification ?? writable[0] ?? "administrative",
+      clinicalRecordId: (document ?? template)?.clinicalRecordId ?? "",
+      notes: (document ?? template)?.notes ?? "",
     },
   })
   const errors = form.formState.errors

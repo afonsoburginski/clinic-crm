@@ -14,15 +14,17 @@ import { useCan } from "@/shared/lib/current-user"
 import { formatCurrency, formatDuration } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
 import { ActivePill } from "@/shared/ui/atoms/state-pill"
-import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
+import { copyName, serviceActions, serviceToInput } from "../lib/service-actions"
 import { useSaveService, useSaveSpecialty } from "../queries"
 
-type Editing<T> = { item?: T } | null
+/** `item` edita; `template` abre o diálogo de criação já preenchido (duplicar). */
+type Editing<T> = { item?: T; template?: T } | null
 
 const ROOM_OPTIONS = [
   { value: "required", label: "Exige sala" },
@@ -38,6 +40,7 @@ export function ServicesView() {
   const canManage = useCan("services:manage")
   const [editingService, setEditingService] = useState<Editing<Service>>(null)
   const [editingSpecialty, setEditingSpecialty] = useState<Editing<Specialty>>(null)
+  const saveService = useSaveService()
 
   const columns = useMemo<DataTableColumn<Service>[]>(
     () => [
@@ -91,17 +94,8 @@ export function ServicesView() {
         meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (s) => (s.active ? "active" : "inactive") } },
         cell: ({ row: { original: s } }) => <ActivePill active={s.active} />,
       },
-      ...(canManage
-        ? [
-            actionsColumn<Service>((s) => (
-              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${s.name}`} onClick={() => setEditingService({ item: s })}>
-                <Pencil aria-hidden />
-              </Button>
-            )),
-          ]
-        : []),
     ],
-    [specialty, specialties, canManage]
+    [specialty, specialties]
   )
 
   return (
@@ -132,6 +126,14 @@ export function ServicesView() {
             searchPlaceholder="Serviço ou especialidade"
             isLoading={isLoading}
             noun={["serviço", "serviços"]}
+            rowLabel={(s) => s.name}
+            rowActions={(s) =>
+              serviceActions(s, {
+                onEdit: () => setEditingService({ item: s }),
+                onDuplicate: () => setEditingService({ template: s }),
+                onSetActive: (active) => saveService.mutate({ input: serviceToInput(s, { active }), id: s.id }),
+              })
+            }
             empty={{ title: "Nenhum serviço cadastrado" }}
           />
         </SectionCard>
@@ -169,24 +171,24 @@ export function ServicesView() {
       </div>
 
       {editingService && (
-        <ServiceDialog service={editingService.item} specialties={specialties} onClose={() => setEditingService(null)} />
+        <ServiceDialog service={editingService.item} template={editingService.template} specialties={specialties} onClose={() => setEditingService(null)} />
       )}
       {editingSpecialty && <SpecialtyDialog specialty={editingSpecialty.item} onClose={() => setEditingSpecialty(null)} />}
     </>
   )
 }
 
-function ServiceDialog({ service, specialties, onClose }: { service?: Service; specialties: Specialty[]; onClose: () => void }) {
+function ServiceDialog({ service, template, specialties, onClose }: { service?: Service; template?: Service; specialties: Specialty[]; onClose: () => void }) {
   const save = useSaveService()
   const form = useForm<ServiceInput>({
     resolver: zodResolver(serviceSchema) as never,
     defaultValues: {
-      name: service?.name ?? "",
-      specialtyId: service?.specialtyId ?? "",
-      durationMin: service?.durationMin ?? 50,
-      referencePrice: service ? service.referencePriceCents / 100 : 0,
-      requiresRoom: service?.requiresRoom ?? true,
-      active: service?.active ?? true,
+      name: service ? service.name : template ? copyName(template.name) : "",
+      specialtyId: (service ?? template)?.specialtyId ?? "",
+      durationMin: (service ?? template)?.durationMin ?? 50,
+      referencePrice: (service ?? template) ? (service ?? template)!.referencePriceCents / 100 : 0,
+      requiresRoom: (service ?? template)?.requiresRoom ?? true,
+      active: (service ?? template)?.active ?? true,
     },
   })
   const { errors } = form.formState

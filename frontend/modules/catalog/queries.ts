@@ -8,6 +8,8 @@ import { api } from "@/shared/api/api"
 import { optimisticPatch, patchById } from "@/shared/lib/optimistic"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
+import { professionalToInput } from "./lib/professional-actions"
+
 export function useProfessional(id: string) {
   return useQuery({ queryKey: ["professionals", id], queryFn: () => api.professionals.get(id), retry: false })
 }
@@ -70,4 +72,13 @@ export function useSaveRoom() {
     invalidate: [["rooms"]],
     success: (_, vars) => (vars.id ? "Sala atualizada." : "Sala criada."),
   })
+}
+
+/** Inativar/reativar profissional a partir da lista (o PATCH preserva grade e indisponibilidades). */
+export function useSetProfessionalActive() {
+  return useApiMutation(
+    ({ professional, active }: { professional: Professional; active: boolean }) =>
+      api.professionals.save(professionalToInput(professional, { active }), professional.id) as Promise<Professional>,
+    { invalidate: [["professionals"]], success: (_, vars) => (vars.active ? "Profissional reativado." : "Profissional inativado.") }
+  )
 }

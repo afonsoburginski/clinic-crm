@@ -16,20 +16,21 @@ import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
 import { useSaveEntry } from "../queries"
 
-export function EntryFormDialog({ entry, defaultCompetence, onClose }: { entry?: FinancialEntry; defaultCompetence: string; onClose: () => void }) {
+/** `entry` edita; `template` abre um lançamento novo já preenchido com os dados de outro (duplicar, sem pagamentos). */
+export function EntryFormDialog({ entry, template, defaultCompetence, onClose }: { entry?: FinancialEntry; template?: FinancialEntry; defaultCompetence: string; onClose: () => void }) {
   const { patients } = useLookups()
   const save = useSaveEntry(entry?.id)
   const form = useForm<FinancialEntryInput>({
     resolver: zodResolver(financialEntrySchema),
     defaultValues: {
-      kind: entry?.kind ?? "income",
-      description: entry?.description ?? "",
-      category: entry?.category ?? "",
-      counterparty: entry?.counterparty ?? "",
-      patientId: entry?.patientId ?? "",
+      kind: (entry ?? template)?.kind ?? "income",
+      description: entry ? entry.description : template ? `${template.description} (cópia)`.slice(0, 120) : "",
+      category: (entry ?? template)?.category ?? "",
+      counterparty: (entry ?? template)?.counterparty ?? "",
+      patientId: (entry ?? template)?.patientId ?? "",
       competence: entry?.competence ?? defaultCompetence,
       dueDate: entry?.dueDate ?? clinicDateKey(new Date()),
-      amount: entry ? entry.amountCents / 100 : undefined,
+      amount: (entry ?? template) ? (entry ?? template)!.amountCents / 100 : undefined,
     },
   })
   const errors = form.formState.errors

@@ -13,7 +13,8 @@ import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
-import { useDocuments } from "../queries"
+import { documentActions } from "../lib/document-actions"
+import { useDocuments, useSetDocumentStatusRow } from "../queries"
 import { DocumentDetailDialog } from "./document-detail-dialog"
 import { DocumentFormDialog } from "./document-form-dialog"
 import { ClassificationPill, DocumentStatusPill } from "./document-pills"
@@ -82,6 +83,8 @@ export function DocumentsView() {
   const { user } = useCurrentUser()
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<PatientDocument | "new" | null>(null)
+  const [template, setTemplate] = useState<PatientDocument | null>(null)
+  const setStatus = useSetDocumentStatusRow()
   const { data, isLoading, error, refetch, isPlaceholderData } = useDocuments({ classification: "all", status: "all" })
 
   const canCreate = (["clinical", "administrative", "financial"] as const).some((c) => documentAccess(user, c, true).write)
@@ -117,6 +120,16 @@ export function DocumentsView() {
           noun={["documento", "documentos"]}
           empty={{ icon: <FolderOpen aria-hidden />, title: "Nenhum documento", description: "Você só vê as classificações que seu perfil pode acessar." }}
           onRowClick={({ doc }) => setDetailId(doc.id)}
+          rowLabel={({ doc }) => doc.title}
+          rowActions={({ doc, canWrite }) =>
+            documentActions(doc, canWrite, {
+              onView: () => setDetailId(doc.id),
+              onEdit: () => setEditing(doc),
+              onDuplicate: () => setTemplate(doc),
+              onIssue: () => setStatus.mutate({ id: doc.id, to: "issued" }),
+              onArchive: () => setStatus.mutate({ id: doc.id, to: "archived" }),
+            })
+          }
         />
       </SectionCard>
 
@@ -131,6 +144,7 @@ export function DocumentsView() {
         />
       )}
       {editing && <DocumentFormDialog document={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
+      {template && <DocumentFormDialog template={template} onClose={() => setTemplate(null)} />}
     </>
   )
 }

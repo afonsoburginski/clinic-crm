@@ -8,6 +8,7 @@ import {
   useReactTable,
   type Column,
   type ColumnDef,
+  type Header,
   type Row,
   type RowSelectionState,
   type SortingState,
@@ -20,6 +21,8 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { EntityActionsButton, EntityContextMenu, EntityMenu } from "@/shared/ui/entity-menu"
+import type { EntityAction } from "@/shared/ui/entity-menu"
 import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 
 import "./column-meta"
@@ -27,6 +30,7 @@ import { DataTableColumnsMenu, type ColumnMenuItem } from "./data-table-columns-
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { DataTableViews } from "./data-table-views"
+import { columnActions, focusFilterControl } from "./lib/column-actions"
 import { activeFilters, applyFilters, facetCounts, withFilter } from "./lib/filters"
 import { clampPage, pageCountOf } from "./lib/pagination"
 import { compareValues } from "./lib/sort"
@@ -41,6 +45,11 @@ const SELECT_ID = "__select"
 const EXPAND_ID = "__expand"
 const ACTIONS_ID = "__actions"
 const AUTOSAVE_DELAY_MS = 800
+
+/** Coluna "⋯": fixa à direita (opaca, acompanha o realce da linha) para continuar à mão em tabelas largas. */
+const STICKY_ACTIONS_CLASS =
+  "sticky right-0 z-10 bg-background group-hover/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] group-data-[state=selected]/row:bg-muted group-data-popup-open/row:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))]"
+const STICKY_HEAD_CLASS = "sticky right-0 z-10 bg-background"
 
 const BREAKPOINT_CLASS = {
   sm: "hidden sm:table-cell",
@@ -72,6 +81,12 @@ function searchTextOf<T>(columns: readonly DataTableColumn<T>[]) {
     }]
   })
   return (row: T) => parts.map((part) => part(row)).join(" ")
+}
+
+/** O que a tabela entrega a `rowActions` além da linha: o estado de expansão (linhas expansíveis, ex.: auditoria). */
+export interface RowActionHelpers {
+  expanded: boolean
+  toggleExpanded: () => void
 }
 
 export interface DataTableProps<T> {
@@ -112,13 +127,14 @@ export interface DataTableProps<T> {
   /** Linha expansível (ex.: detalhes de auditoria): ganha uma coluna com o botão de expandir. */
   renderExpanded?: (row: T) => React.ReactNode
   /**
-   * PONTOS DE EXTENSÃO do menu de contexto (item "Context menu"): ainda não implementados aqui.
-   * `renderRowActions` desenha a última célula da linha (botão "⋯"); `rowMenu` recebe a `<tr>` pronta e devolve
-   * o elemento envolvido (clique direito); `renderHeaderMenu` desenha o menu do cabeçalho de cada coluna.
+   * Ações de cada linha (`EntityAction[]`): viram a coluna final "⋯" (fixa à direita) e o menu de clique direito da
+   * `<tr>` — Shift+F10 / tecla Menu abrem o mesmo menu a partir do foco. Fora da exportação e da ordenação.
    */
-  renderRowActions?: (row: T) => React.ReactNode
-  rowMenu?: (row: T, rowElement: React.ReactElement) => React.ReactElement
-  renderHeaderMenu?: (column: Column<T, unknown>) => React.ReactNode
+  rowActions?: (row: T, helpers: RowActionHelpers) => EntityAction[]
+  /** Nome acessível do botão "⋯" de uma linha (ex.: "Ações de Maria Souza"). */
+  rowLabel?: (row: T) => string
+  /** Menu de cada cabeçalho (clique direito e "⋯"): ordenar, ocultar, filtrar, mostrar todas. Ligado por padrão. */
+  headerMenu?: boolean
   className?: string
 }
 
@@ -147,12 +163,17 @@ export function DataTable<T>({
   onRowsChange,
   toolbarActions,
   renderExpanded,
-  renderRowActions,
-  rowMenu,
-  renderHeaderMenu,
+  rowActions,
+  rowLabel,
+  headerMenu = true,
   className,
 }: DataTableProps<T>) {
   const server = mode === "server"
+  const rootRef = useRef<HTMLDivElement>(null)
+  // As telas passam `rowLabel` inline: ler pela ref evita refazer as colunas do TanStack a cada render.
+  const rowLabelRef = useRef(rowLabel)
+  rowLabelRef.current = rowLabel
+  const hasRowActions = !!rowActions
   const defaults = useMemo(() => defaultsOf(defaultState), []) // eslint-disable-line react-hooks/exhaustive-deps -- padrão da tela, fixo na montagem
 
   // ---------------------------------------------------------------- estado (próprio ou controlado)
@@ -281,18 +302,18 @@ export function DataTable<T>({
       header: () => <span className="sr-only">Ações</span>,
       cell: ({ row }) => (
         <span className="flex justify-end" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-          {renderRowActions?.(row.original)}
+          <EntityActionsButton label={rowLabelRef.current ? `Ações de ${rowLabelRef.current(row.original)}` : "Ações da linha"} />
         </span>
       ),
       enableSorting: false,
       enableHiding: false,
-      meta: { alwaysVisible: true, align: "right", className: "w-12" },
+      meta: { alwaysVisible: true, align: "right", className: `w-12 ${STICKY_ACTIONS_CLASS}`, headerClassName: STICKY_HEAD_CLASS },
     }
     const byId = new Map(columns.map((column) => [columnIdOf(column), column]))
     const ordered = orderedUserIds.flatMap((id) => byId.get(id) ?? [])
     const unnamed = columns.filter((column) => !columnIdOf(column))
-    return [...(enableRowSelection ? [select] : []), ...(renderExpanded ? [expand] : []), ...ordered, ...unnamed, ...(renderRowActions ? [actions] : [])]
-  }, [columns, orderedUserIds, enableRowSelection, renderExpanded, renderRowActions, expanded])
+    return [...(enableRowSelection ? [select] : []), ...(renderExpanded ? [expand] : []), ...ordered, ...unnamed, ...(hasRowActions ? [actions] : [])]
+  }, [columns, orderedUserIds, enableRowSelection, renderExpanded, hasRowActions, expanded])
 
   const columnVisibility = useMemo(() => Object.fromEntries(state.hiddenColumns.map((id) => [id, false])), [state.hiddenColumns])
 
@@ -353,6 +374,11 @@ export function DataTable<T>({
   const toggleColumn = (id: string) =>
     setState({ hiddenColumns: state.hiddenColumns.includes(id) ? state.hiddenColumns.filter((h) => h !== id) : [...state.hiddenColumns, id] })
 
+  const sortColumn = (id: string, direction: "asc" | "desc" | false) =>
+    setState({ sort: direction ? [{ id, desc: direction === "desc" }] : state.sort.filter((rule) => rule.id !== id), pageIndex: 0 })
+  const hideColumn = (id: string) => !state.hiddenColumns.includes(id) && setState({ hiddenColumns: [...state.hiddenColumns, id] })
+  const showAllColumns = () => setState({ hiddenColumns: [] })
+
   const savedViews = (prefs.data ?? []).filter((view) => view.name !== DEFAULT_VIEW)
   const anyFilter = activeFilters(specs, state.filters).length > 0 || state.search.trim() !== ""
   const busy = isLoading || !hydrated
@@ -372,35 +398,35 @@ export function DataTable<T>({
   }
 
   const renderRow = (row: Row<T>) => {
-    const element = (
-      <TableRow
-        key={row.id}
-        data-state={row.getIsSelected() ? "selected" : undefined}
-        tabIndex={onRowClick ? 0 : undefined}
-        className={cn(onRowClick && "cursor-pointer")}
-        onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-        onKeyDown={
-          onRowClick
-            ? (event) => {
-                if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
-                  event.preventDefault()
-                  onRowClick(row.original)
-                }
-              }
-            : undefined
-        }
-      >
-        {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id} className={cn("py-3", cellClass(cell.column))}>
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
-      </TableRow>
+    const rowProps = {
+      "data-state": row.getIsSelected() ? ("selected" as const) : undefined,
+      tabIndex: onRowClick ? 0 : undefined,
+      className: cn("group/row", onRowClick && "cursor-pointer"),
+      onClick: onRowClick ? () => onRowClick(row.original) : undefined,
+      onKeyDown: onRowClick
+        ? (event: React.KeyboardEvent) => {
+            if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault()
+              onRowClick(row.original)
+            }
+          }
+        : undefined,
+    }
+    const cells = row.getVisibleCells().map((cell) => (
+      <TableCell key={cell.id} className={cn("py-3", cellClass(cell.column))}>
+        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+      </TableCell>
+    ))
+    const line = rowActions ? (
+      <EntityMenu actions={rowActions(row.original, { expanded: !!expanded[row.id], toggleExpanded: () => setExpanded((current) => ({ ...current, [row.id]: !current[row.id] })) })}>
+        <EntityContextMenu render={<TableRow {...rowProps} />}>{cells}</EntityContextMenu>
+      </EntityMenu>
+    ) : (
+      <TableRow {...rowProps}>{cells}</TableRow>
     )
-    const wrapped = rowMenu ? rowMenu(row.original, element) : element
     return (
       <Fragment key={row.id}>
-        {wrapped}
+        {line}
         {renderExpanded && expanded[row.id] && (
           <TableRow className="hover:bg-transparent">
             <TableCell colSpan={visibleLeaf.length} className="p-0 whitespace-normal">
@@ -409,6 +435,68 @@ export function DataTable<T>({
           </TableRow>
         )}
       </Fragment>
+    )
+  }
+
+  const renderHeader = (header: Header<T, unknown>) => {
+    const column = header.column
+    const sorted = column.getIsSorted()
+    const canSort = column.getCanSort()
+    const content = header.isPlaceholder ? null : flexRender(column.columnDef.header, header.getContext())
+    const label = column.columnDef.meta?.label ?? (typeof column.columnDef.header === "string" ? column.columnDef.header : column.id)
+    const headProps = {
+      scope: "col" as const,
+      "aria-sort": canSort ? (sorted === "asc" ? ("ascending" as const) : sorted === "desc" ? ("descending" as const) : ("none" as const)) : undefined,
+      className: cn("group/th", cellClass(column), column.columnDef.meta?.headerClassName),
+    }
+    const inner = (
+      <span className={cn("inline-flex items-center gap-1", column.columnDef.meta?.align === "right" && "flex-row-reverse")}>
+        {canSort ? (
+          <button
+            type="button"
+            onClick={column.getToggleSortingHandler()}
+            title="Ordenar (Shift para ordenar por mais de uma coluna)"
+            className="-mx-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {content}
+            {sorted === "asc" ? <ArrowUp className="size-3.5" aria-hidden /> : sorted === "desc" ? <ArrowDown className="size-3.5" aria-hidden /> : <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />}
+          </button>
+        ) : (
+          content
+        )}
+        {headerMenu && !header.isPlaceholder && userColumnIds.includes(column.id) && (
+          <EntityActionsButton
+            size="icon-xs"
+            label={`Opções da coluna ${label}`}
+            align="start"
+            className="opacity-0 transition-opacity group-hover/th:opacity-100 group-focus-within/th:opacity-100 aria-expanded:opacity-100"
+          />
+        )}
+      </span>
+    )
+    if (!headerMenu || header.isPlaceholder || !userColumnIds.includes(column.id)) {
+      return (
+        <TableHead key={header.id} {...headProps}>
+          {inner}
+        </TableHead>
+      )
+    }
+    const actions = columnActions({
+      label,
+      canSort,
+      sorted,
+      canHide: !column.columnDef.meta?.alwaysVisible && column.getCanHide(),
+      hasFilter: specs.some((spec) => spec.id === column.id),
+      hiddenCount: state.hiddenColumns.length,
+      onSort: (direction) => sortColumn(column.id, direction),
+      onHide: () => hideColumn(column.id),
+      onFilter: () => focusFilterControl(rootRef.current, column.id),
+      onShowAll: showAllColumns,
+    })
+    return (
+      <EntityMenu key={header.id} actions={actions}>
+        <EntityContextMenu render={<TableHead {...headProps} />}>{inner}</EntityContextMenu>
+      </EntityMenu>
     )
   }
 
@@ -437,37 +525,7 @@ export function DataTable<T>({
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
-                {group.headers.map((header) => {
-                  const column = header.column
-                  const sorted = column.getIsSorted()
-                  const canSort = column.getCanSort()
-                  const content = header.isPlaceholder ? null : flexRender(column.columnDef.header, header.getContext())
-                  return (
-                    <TableHead
-                      key={header.id}
-                      scope="col"
-                      aria-sort={canSort ? (sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none") : undefined}
-                      className={cn(cellClass(column), column.columnDef.meta?.headerClassName)}
-                    >
-                      <span className={cn("inline-flex items-center gap-1", column.columnDef.meta?.align === "right" && "flex-row-reverse")}>
-                        {canSort ? (
-                          <button
-                            type="button"
-                            onClick={column.getToggleSortingHandler()}
-                            title="Ordenar (Shift para ordenar por mais de uma coluna)"
-                            className="-mx-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            {content}
-                            {sorted === "asc" ? <ArrowUp className="size-3.5" aria-hidden /> : sorted === "desc" ? <ArrowDown className="size-3.5" aria-hidden /> : <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />}
-                          </button>
-                        ) : (
-                          content
-                        )}
-                        {renderHeaderMenu?.(column)}
-                      </span>
-                    </TableHead>
-                  )
-                })}
+                {group.headers.map(renderHeader)}
               </TableRow>
             ))}
           </TableHeader>
@@ -477,7 +535,7 @@ export function DataTable<T>({
     )
 
   return (
-    <div data-slot="data-table" className={className}>
+    <div ref={rootRef} data-slot="data-table" className={className}>
       <DataTableToolbar
         label={label}
         search={state.search}

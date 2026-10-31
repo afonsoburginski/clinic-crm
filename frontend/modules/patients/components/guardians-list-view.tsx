@@ -11,12 +11,12 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTi
 import { guardianSchema, type GuardianInput } from "@/domain/schemas"
 import type { Guardian } from "@/domain/types"
 import type { GuardianWithPatients } from "@/shared/api/api"
-import { useCan } from "@/shared/lib/current-user"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
-import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
+import { guardianActions } from "../lib/guardian-actions"
 import { useGuardians, useSaveGuardian } from "../queries"
 import { GuardianFields } from "./guardian-fields"
 
@@ -26,7 +26,6 @@ const LINK_OPTIONS = [
 ]
 
 export function GuardiansListView() {
-  const canWrite = useCan("guardians:write")
   const { data, isLoading, error, refetch, isPlaceholderData } = useGuardians("")
   const [editing, setEditing] = useState<Guardian | null>(null)
 
@@ -78,17 +77,8 @@ export function GuardiansListView() {
           </div>
         ),
       },
-      ...(canWrite
-        ? [
-            actionsColumn<GuardianWithPatients>(({ guardian }) => (
-              <Button size="sm" variant="ghost" onClick={() => setEditing(guardian)}>
-                Editar
-              </Button>
-            )),
-          ]
-        : []),
     ],
-    [canWrite]
+    []
   )
 
   return (
@@ -111,6 +101,8 @@ export function GuardiansListView() {
           error={error}
           onRetry={() => refetch()}
           noun={["responsável", "responsáveis"]}
+          rowLabel={({ guardian }) => guardian.fullName}
+          rowActions={({ guardian }) => guardianActions(guardian, { onEdit: () => setEditing(guardian) })}
           empty={{ icon: <HeartHandshake aria-hidden />, title: "Nenhum responsável cadastrado" }}
         />
       </SectionCard>

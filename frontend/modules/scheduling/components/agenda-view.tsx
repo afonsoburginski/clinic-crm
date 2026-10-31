@@ -20,6 +20,7 @@ import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { addDays, addMonths, dayKeys, monthLabel, monthWeeks, rangeISO, rangeLabel, startOfWeek, todayKey } from "../lib/calendar"
 import { consumeAppointmentLink } from "../lib/appointment-link"
+import { useAppointmentActionsFor } from "../lib/use-appointment-actions"
 import { useAppointments } from "../queries"
 import { AgendaGrid } from "./agenda-grid"
 import { AgendaMonthGrid } from "./agenda-month-grid"
@@ -65,6 +66,11 @@ export function AgendaView() {
     [range.from, range.to, professionalId, roomId] // eslint-disable-line react-hooks/exhaustive-deps
   )
   const query = useAppointments(filters)
+  const openReschedule = (appointment: Appointment) => {
+    setSelected(undefined)
+    setForm({ open: true, appointment })
+  }
+  const actionsFor = useAppointmentActionsFor({ onView: setSelected, onReschedule: openReschedule })
   const appointments = (query.data ?? []).filter((a) => showInactive || !INACTIVE_STATUSES.includes(a.status))
   const visibleProfessionals = lookups.professionals.filter((p) => p.active && (!ownOnly || p.id === user?.professionalId))
 
@@ -170,6 +176,7 @@ export function AgendaView() {
           monthKey={anchor}
           appointments={appointments}
           onSelect={setSelected}
+          actionsFor={actionsFor}
           onOpenDay={(key) => {
             setAnchor(key)
             setMode("day")
@@ -180,6 +187,7 @@ export function AgendaView() {
           days={days}
           appointments={appointments}
           onSelect={setSelected}
+          actionsFor={actionsFor}
           onCreateAt={canWrite ? (date, start) => openCreate({ date, start }) : undefined}
         />
       )}
@@ -187,10 +195,7 @@ export function AgendaView() {
       <AppointmentDetailSheet
         appointment={selected && (query.data?.find((a) => a.id === selected.id) ?? selected)}
         onOpenChange={(open) => !open && setSelected(undefined)}
-        onReschedule={(appointment) => {
-          setSelected(undefined)
-          setForm({ open: true, appointment })
-        }}
+        onReschedule={openReschedule}
       />
       <AppointmentFormDialog
         open={form.open}

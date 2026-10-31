@@ -8,6 +8,8 @@ import { api, type PatientFilters, type PatientGuardian } from "@/shared/api/api
 import { optimisticPatch } from "@/shared/lib/optimistic"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
+import { patientToInput } from "./lib/patient-input"
+
 export const PATIENT_STATUS_LABELS: Record<PatientStatus, string> = {
   active: "Ativo",
   inactive: "Inativo",
@@ -94,4 +96,12 @@ export function useUnlinkGuardian(patientId: string) {
       ),
     ],
   })
+}
+
+/** Inativar/reativar a partir da lista: o id vem na chamada (o hook de `useSavePatient` é por paciente). */
+export function useSetPatientStatus() {
+  return useApiMutation(
+    ({ patient, status }: { patient: Patient; status: PatientStatus }) => api.patients.update(patient.id, { ...patientToInput(patient), status }),
+    { invalidate: [patientKeys.all], success: (_, vars) => (vars.status === "active" ? "Paciente reativado." : "Paciente inativado.") }
+  )
 }

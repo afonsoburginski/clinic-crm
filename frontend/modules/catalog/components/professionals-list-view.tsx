@@ -17,6 +17,8 @@ import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 import { WEEKDAY_SHORT } from "@/shared/lib/format"
 
+import { professionalActions } from "../lib/professional-actions"
+import { useSetProfessionalActive } from "../queries"
 import { ProfessionalFormDialog } from "./professional-form-dialog"
 
 const STATUS_OPTIONS = [
@@ -29,6 +31,8 @@ export function ProfessionalsListView() {
   const { professionals, specialties, specialty, isLoading } = useLookups()
   const canManage = useCan("professionals:manage")
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<Professional | null>(null)
+  const setActive = useSetProfessionalActive()
 
   const columns = useMemo<DataTableColumn<Professional>[]>(
     () => [
@@ -157,10 +161,19 @@ export function ProfessionalsListView() {
           noun={["profissional", "profissionais"]}
           empty={{ icon: <Stethoscope aria-hidden />, title: "Nenhum profissional cadastrado" }}
           onRowClick={(p) => router.push(`/profissionais/${p.id}`)}
+          rowLabel={(p) => p.name}
+          rowActions={(p) =>
+            professionalActions(p, {
+              onView: () => router.push(`/profissionais/${p.id}`),
+              onEdit: () => setEditing(p),
+              onSetActive: (active) => setActive.mutate({ professional: p, active }),
+            })
+          }
         />
       </SectionCard>
 
       {creating && <ProfessionalFormDialog onClose={() => setCreating(false)} />}
+      {editing && <ProfessionalFormDialog professional={editing} onClose={() => setEditing(null)} />}
     </>
   )
 }
