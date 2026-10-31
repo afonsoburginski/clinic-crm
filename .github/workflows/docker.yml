@@ -11,6 +11,7 @@ on:
 jobs:
   build-push:
     runs-on: ubuntu-latest
+    environment: DOCKERHUB_USERNAME
     permissions:
       contents: read
     steps:
