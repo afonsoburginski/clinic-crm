@@ -67,3 +67,36 @@ jobs:
             afonsoburginski/villiere-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Deploy pelo Orbit (ambiente villiere): fixa a tag do commit nos dois serviços, sobe e volta à anterior se não ficar saudável.
+  # O gancho responde 202 na hora (a Cloudflare corta pedidos acima de 100 s) e o job acompanha o status.
+  deploy:
+    name: Deploy · Orbit
+    runs-on: ubuntu-latest
+    needs: [build-push-api, build-push-web]
+    concurrency:
+      group: deploy-villiere
+      cancel-in-progress: false
+    env:
+      ORBIT_URL: ${{ vars.ORBIT_URL }}
+      ORBIT_DEPLOY_TOKEN: ${{ secrets.ORBIT_DEPLOY_TOKEN }}
+      TAG: sha-${{ github.sha }}
+    steps:
+      - name: Entregar pelo Orbit
+        run: |
+          set -euo pipefail
+          [ -n "$ORBIT_URL" ] && [ -n "$ORBIT_DEPLOY_TOKEN" ] || { echo "::error::defina a variável ORBIT_URL e o secret ORBIT_DEPLOY_TOKEN"; exit 1; }
+          body=$(jq -cn --arg tag "$TAG" '{environment: "villiere", services: [{service: "api", tag: $tag}, {service: "web", tag: $tag}]}')
+          response=$(curl -sS --max-time 60 -w '\n%{http_code}' -X POST "$ORBIT_URL/api/hooks/deploy?wait=false" \
+            -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" -H 'Content-Type: application/json' -d "$body")
+          code=$(tail -n1 <<<"$response"); response=$(sed '$d' <<<"$response")
+          [ "$code" = 202 ] || [ "$code" = 200 ] || { echo "::error::Orbit recusou ($code): $(jq -r '.error // .' <<<"$response")"; exit 1; }
+          id=$(jq -r .id <<<"$response")
+          for attempt in $(seq 1 120); do
+            response=$(curl -sS --max-time 30 -w '\n%{http_code}' "$ORBIT_URL/api/hooks/deploy/$id" -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" || printf '\n000')
+            code=$(tail -n1 <<<"$response"); response=$(sed '$d' <<<"$response")
+            if [ "$code" = 202 ] || [ "$code" = 000 ]; then sleep 5; continue; fi
+            if [ "$code" = 200 ] && [ "$(jq -r .state <<<"$response")" = ok ]; then echo "✓ Orbit entregou api e web → $TAG"; exit 0; fi
+            echo "::error::Orbit não entregou ($code): $(jq -r '.error // .' <<<"$response")"; exit 1
+          done
+          echo "::error::Orbit não terminou em 10 min (deploy $id)"; exit 1
