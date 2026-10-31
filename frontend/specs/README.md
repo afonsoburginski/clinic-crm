@@ -61,6 +61,8 @@ Todos os módulos usam **apenas a API real**: não há dado de demonstração, s
 
 Convenção de dialogs, alertdialogs e sheets (tamanhos, anatomia Header/Body/Footer e escala de z-index): [`ui/dialogs.md`](ui/dialogs.md).
 
+Tabelas de dados e seletor de período (`DataTable` único com filtros, paginação client/server, visões salvas por usuário no PostgreSQL e `DateRangePicker`): [`ui/data-table.md`](ui/data-table.md).
+
 ## Fora do escopo desta entrega
 
 Fase 6 (hardening e produção) e portal SvelteKit.

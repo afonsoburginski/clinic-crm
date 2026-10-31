@@ -56,6 +56,7 @@ import { blankToUndefined, currentUser, items, parse, seg, uid, whenForbidden } 
 import { http } from "./http-client"
 import { invalidatePatients, loadPatients } from "./patient-directory"
 import { ensureUserNames, knownUserName } from "./user-directory"
+import { tablePreferencesApi } from "./table-preferences-api"
 import { rolesApi, usersApi } from "./users-api"
 
 // ---------------------------------------------------------------- helpers
@@ -741,6 +742,8 @@ export const api = {
   // Usuários, papéis e permissões (gestão em Configurações)
   users: usersApi,
   roles: rolesApi,
+  // Visões salvas e preferências das tabelas (por usuário, no PostgreSQL)
+  tablePreferences: tablePreferencesApi,
 }
 
 export type { AbaPlanView } from "./clinical-api"

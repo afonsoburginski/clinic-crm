@@ -2,20 +2,19 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Pencil, Plus } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { serviceSchema, specialtySchema, type ServiceInput, type SpecialtyInput } from "@/domain/schemas"
 import type { Service, Specialty } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { formatCurrency, formatDuration } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
 import { ActivePill } from "@/shared/ui/atoms/state-pill"
-import { EmptyState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
@@ -25,11 +24,85 @@ import { useSaveService, useSaveSpecialty } from "../queries"
 
 type Editing<T> = { item?: T } | null
 
+const ROOM_OPTIONS = [
+  { value: "required", label: "Exige sala" },
+  { value: "optional", label: "Sala opcional" },
+]
+const STATUS_OPTIONS = [
+  { value: "active", label: "Ativos" },
+  { value: "inactive", label: "Inativos" },
+]
+
 export function ServicesView() {
   const { services, specialties, specialty, isLoading } = useLookups()
   const canManage = useCan("services:manage")
   const [editingService, setEditingService] = useState<Editing<Service>>(null)
   const [editingSpecialty, setEditingSpecialty] = useState<Editing<Specialty>>(null)
+
+  const columns = useMemo<DataTableColumn<Service>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Serviço",
+        accessorFn: (s) => s.name,
+        meta: {
+          label: "Serviço",
+          alwaysVisible: true,
+          searchValue: (s) => `${s.name} ${specialty.get(s.specialtyId)?.name ?? ""}`,
+          filter: { kind: "multiselect", label: "Especialidade", options: specialties.map((sp) => ({ value: sp.id, label: sp.name })), value: (s) => s.specialtyId },
+        },
+        cell: ({ row: { original: s } }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{s.name}</span>
+            <span className="text-xs text-muted-foreground">{specialty.get(s.specialtyId)?.name}</span>
+          </div>
+        ),
+      },
+      {
+        id: "duration",
+        header: "Duração",
+        accessorFn: (s) => s.durationMin,
+        meta: { label: "Duração", className: "tabular-nums", filter: { kind: "range", label: "Duração", unit: "min", value: (s) => s.durationMin } },
+        cell: ({ row: { original: s } }) => formatDuration(s.durationMin),
+      },
+      {
+        id: "price",
+        header: "Valor de referência",
+        accessorFn: (s) => s.referencePriceCents,
+        meta: { label: "Valor de referência", hideBelow: "md", className: "tabular-nums", filter: { kind: "money", label: "Valor", value: (s) => s.referencePriceCents } },
+        cell: ({ row: { original: s } }) => formatCurrency(s.referencePriceCents),
+      },
+      {
+        id: "room",
+        header: "Sala",
+        accessorFn: (s) => (s.requiresRoom ? "Exige" : "Opcional"),
+        meta: {
+          label: "Sala",
+          hideBelow: "sm",
+          className: "text-muted-foreground",
+          filter: { kind: "select", label: "Sala", allLabel: "Sala: qualquer", options: ROOM_OPTIONS, value: (s) => (s.requiresRoom ? "required" : "optional") },
+        },
+        cell: ({ row: { original: s } }) => (s.requiresRoom ? "Exige" : "Opcional"),
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: (s) => (s.active ? "Ativo" : "Inativo"),
+        meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (s) => (s.active ? "active" : "inactive") } },
+        cell: ({ row: { original: s } }) => <ActivePill active={s.active} />,
+      },
+      ...(canManage
+        ? [
+            actionsColumn<Service>((s) => (
+              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${s.name}`} onClick={() => setEditingService({ item: s })}>
+                <Pencil aria-hidden />
+              </Button>
+            )),
+          ]
+        : []),
+    ],
+    [specialty, specialties, canManage]
+  )
 
   return (
     <>
@@ -49,49 +122,18 @@ export function ServicesView() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <SectionCard title="Serviços" description={`${services.filter((s) => s.active).length} ativos`} bodyClassName="p-0">
-          {isLoading ? (
-            <ListSkeleton rows={5} className="p-5" />
-          ) : services.length === 0 ? (
-            <EmptyState title="Nenhum serviço cadastrado" className="m-5" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-5">Serviço</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead className="hidden md:table-cell">Valor de referência</TableHead>
-                  <TableHead className="hidden sm:table-cell">Sala</TableHead>
-                  <TableHead>Situação</TableHead>
-                  {canManage && <TableHead className="pr-5"><span className="sr-only">Ações</span></TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {services.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="pl-5">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-xs text-muted-foreground">{specialty.get(s.specialtyId)?.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="tabular-nums">{formatDuration(s.durationMin)}</TableCell>
-                    <TableCell className="hidden tabular-nums md:table-cell">{formatCurrency(s.referencePriceCents)}</TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">{s.requiresRoom ? "Exige" : "Opcional"}</TableCell>
-                    <TableCell>
-                      <ActivePill active={s.active} />
-                    </TableCell>
-                    {canManage && (
-                      <TableCell className="pr-5 text-right">
-                        <Button variant="ghost" size="icon-sm" aria-label={`Editar ${s.name}`} onClick={() => setEditingService({ item: s })}>
-                          <Pencil aria-hidden />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            label="Serviços"
+            tableKey="services"
+            columns={columns}
+            data={services}
+            getRowId={(s) => s.id}
+            defaultState={{ sort: [{ id: "name", desc: false }] }}
+            searchPlaceholder="Serviço ou especialidade"
+            isLoading={isLoading}
+            noun={["serviço", "serviços"]}
+            empty={{ title: "Nenhum serviço cadastrado" }}
+          />
         </SectionCard>
 
         <SectionCard

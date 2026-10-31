@@ -1,51 +1,116 @@
 "use client"
 
 import { Plus, Wallet } from "lucide-react"
-import { useDeferredValue, useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { clinicDateKey } from "@/domain/clinic-time"
 import { ENTRY_STATUS_LABELS, KIND_LABELS, type KindSummary } from "@/domain/financial"
 import type { FinancialEntry, FinancialEntryStatus, FinancialKind } from "@/domain/types"
 import { formatBirthDate, formatCurrency } from "@/shared/lib/format"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { ErrorState } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
-import { SearchInput } from "@/shared/ui/molecules/search-input"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
+import type { FinancialRow } from "@/shared/api/api"
 
 import { useFinancialEntries, useFinancialSummary } from "../queries"
 import { EntryDetailDialog } from "./entry-detail-dialog"
 import { EntryFormDialog } from "./entry-form-dialog"
 import { competenceLabel, EntryStatusPill } from "./entry-status-pill"
 
-const KIND_FILTERS: { value: FinancialKind | "all"; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "income", label: "Receitas" },
-  { value: "expense", label: "Despesas" },
-]
-
-const STATUS_OPTIONS = [
-  { value: "all", label: "Todas as situações" },
-  ...(Object.keys(ENTRY_STATUS_LABELS) as FinancialEntryStatus[]).map((value) => ({ value, label: ENTRY_STATUS_LABELS[value] })),
-]
+const KIND_OPTIONS = (Object.keys(KIND_LABELS) as FinancialKind[]).map((value) => ({ value, label: KIND_LABELS[value] }))
+const STATUS_OPTIONS = (Object.keys(ENTRY_STATUS_LABELS) as FinancialEntryStatus[]).map((value) => ({ value, label: ENTRY_STATUS_LABELS[value] }))
 
 export function FinancialView() {
   const [competence, setCompetence] = useState(() => clinicDateKey(new Date()).slice(0, 7))
-  const [kind, setKind] = useState<FinancialKind | "all">("all")
-  const [status, setStatus] = useState<FinancialEntryStatus | "all">("all")
-  const [search, setSearch] = useState("")
-  const deferredSearch = useDeferredValue(search)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<FinancialEntry | "new" | null>(null)
 
-  const list = useFinancialEntries({ competence, kind, status, search: deferredSearch })
+  const list = useFinancialEntries({ competence })
   const summary = useFinancialSummary(competence)
+
+  const columns = useMemo<DataTableColumn<FinancialRow>[]>(() => {
+    const categories = [...new Set((list.data ?? []).map(({ entry }) => entry.category).filter(Boolean))].sort((x, y) => x.localeCompare(y, "pt-BR"))
+    return [
+      {
+        id: "description",
+        header: "Lançamento",
+        accessorFn: ({ entry }) => entry.description,
+        meta: {
+          label: "Lançamento",
+          alwaysVisible: true,
+          searchValue: ({ entry }) => `${entry.code} ${entry.description} ${entry.category} ${entry.counterparty ?? ""}`,
+          exportValue: ({ entry }) => entry.description,
+        },
+        cell: ({ row: { original: { entry } } }) => (
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-medium">{entry.description}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              <span className="font-mono">{entry.code}</span> · {KIND_LABELS[entry.kind]} · {entry.category}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: "kind",
+        header: "Tipo",
+        accessorFn: ({ entry }) => KIND_LABELS[entry.kind],
+        meta: { label: "Tipo", hideBelow: "md", filter: { kind: "status", label: "Tipo", options: KIND_OPTIONS, value: ({ entry }) => entry.kind }, exportValue: ({ entry }) => KIND_LABELS[entry.kind] },
+        cell: ({ row: { original: { entry } } }) => KIND_LABELS[entry.kind],
+      },
+      {
+        id: "category",
+        header: "Categoria",
+        accessorFn: ({ entry }) => entry.category,
+        meta: {
+          label: "Categoria",
+          hideBelow: "lg",
+          className: "text-muted-foreground",
+          filter: { kind: "multiselect", label: "Categoria", options: categories.map((value) => ({ value, label: value })), value: ({ entry }) => entry.category },
+          exportValue: ({ entry }) => entry.category,
+        },
+        cell: ({ row: { original: { entry } } }) => entry.category,
+      },
+      {
+        id: "dueDate",
+        header: "Vencimento",
+        accessorFn: ({ entry }) => entry.dueDate,
+        meta: {
+          label: "Vencimento",
+          hideBelow: "sm",
+          className: "text-muted-foreground",
+          filter: { kind: "date-range", label: "Vencimento", value: ({ entry }) => entry.dueDate },
+          exportValue: ({ entry }) => entry.dueDate,
+        },
+        cell: ({ row: { original: { entry } } }) => formatBirthDate(entry.dueDate),
+      },
+      {
+        id: "amount",
+        header: "Valor",
+        accessorFn: ({ entry }) => entry.amountCents,
+        meta: { label: "Valor", align: "right", className: "tabular-nums", filter: { kind: "money", label: "Valor", value: ({ entry }) => entry.amountCents }, exportValue: ({ entry }) => entry.amountCents / 100 },
+        cell: ({ row: { original: { entry } } }) => formatCurrency(entry.amountCents),
+      },
+      {
+        id: "balance",
+        header: "Saldo",
+        accessorFn: ({ balanceCents }) => balanceCents,
+        meta: { label: "Saldo", align: "right", hideBelow: "md", className: "text-muted-foreground tabular-nums", exportValue: ({ balanceCents }) => balanceCents / 100 },
+        cell: ({ row: { original: { balanceCents, status } } }) => (status === "cancelled" ? "—" : formatCurrency(balanceCents)),
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: ({ status }) => ENTRY_STATUS_LABELS[status],
+        meta: { label: "Situação", align: "right", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: ({ status }) => status }, exportValue: ({ status }) => ENTRY_STATUS_LABELS[status] },
+        cell: ({ row: { original: { status } } }) => <EntryStatusPill status={status} />,
+      },
+    ]
+  }, [list.data])
 
   return (
     <>
@@ -86,61 +151,22 @@ export function FinancialView() {
       )}
 
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Filtros de lançamentos">
-          <ToolbarGroup className="w-full sm:max-w-xs">
-            <SearchInput value={search} onChange={setSearch} placeholder="Código, descrição ou categoria" label="Buscar lançamentos" />
-          </ToolbarGroup>
-          <ToolbarGroup align="end">
-            <HaloToggleGroup items={KIND_FILTERS} value={kind} onValueChange={(v) => v && setKind(v as FinancialKind | "all")} />
-            <SimpleSelect ariaLabel="Filtrar por situação" value={status} onChange={(v) => setStatus(v as FinancialEntryStatus | "all")} options={STATUS_OPTIONS} className="w-48" />
-          </ToolbarGroup>
-        </Toolbar>
-
-        {list.error ? (
-          <ErrorState error={list.error} onRetry={() => list.refetch()} className="m-4" />
-        ) : list.isLoading ? (
-          <ListSkeleton rows={6} className="p-4" />
-        ) : !list.data?.length ? (
-          <EmptyState icon={<Wallet aria-hidden />} title="Nenhum lançamento" description="Não há lançamentos nesta competência com os filtros atuais." className="m-4" />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-5">Lançamento</TableHead>
-                <TableHead className="hidden sm:table-cell">Vencimento</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="hidden text-right md:table-cell">Saldo</TableHead>
-                <TableHead className="pr-5 text-right">Situação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.data.map(({ entry, balanceCents, status: rowStatus }) => (
-                <TableRow
-                  key={entry.id}
-                  tabIndex={0}
-                  className="cursor-pointer"
-                  onClick={() => setDetailId(entry.id)}
-                  onKeyDown={(e) => e.key === "Enter" && setDetailId(entry.id)}
-                >
-                  <TableCell className="pl-5">
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">{entry.description}</span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        <span className="font-mono">{entry.code}</span> · {KIND_LABELS[entry.kind]} · {entry.category}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground sm:table-cell">{formatBirthDate(entry.dueDate)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(entry.amountCents)}</TableCell>
-                  <TableCell className="hidden text-right text-muted-foreground tabular-nums md:table-cell">{rowStatus === "cancelled" ? "—" : formatCurrency(balanceCents)}</TableCell>
-                  <TableCell className="pr-5 text-right">
-                    <EntryStatusPill status={rowStatus} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable
+          label="Lançamentos"
+          tableKey="financial-entries"
+          columns={columns}
+          data={list.data ?? []}
+          getRowId={({ entry }) => entry.id}
+          defaultState={{ sort: [{ id: "dueDate", desc: false }] }}
+          searchPlaceholder="Código, descrição ou categoria"
+          isLoading={list.isLoading}
+          isRefreshing={list.isPlaceholderData}
+          error={list.error}
+          onRetry={() => list.refetch()}
+          noun={["lançamento", "lançamentos"]}
+          empty={{ icon: <Wallet aria-hidden />, title: "Nenhum lançamento", description: "Não há lançamentos nesta competência." }}
+          onRowClick={({ entry }) => setDetailId(entry.id)}
+        />
       </SectionCard>
 
       {detailId && (

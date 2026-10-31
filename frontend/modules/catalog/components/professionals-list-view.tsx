@@ -1,37 +1,132 @@
 "use client"
 
-import { Plus } from "lucide-react"
+import { Plus, Stethoscope } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
+import type { Professional } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { ActivePill } from "@/shared/ui/atoms/state-pill"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ProDot } from "@/shared/ui/atoms/pro-color"
-import { EmptyState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
-import { SearchInput } from "@/shared/ui/molecules/search-input"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
+import { SectionCard } from "@/shared/ui/molecules/section-card"
 import { WEEKDAY_SHORT } from "@/shared/lib/format"
 
 import { ProfessionalFormDialog } from "./professional-form-dialog"
 
-type StatusFilter = "active" | "inactive" | "all"
+const STATUS_OPTIONS = [
+  { value: "active", label: "Ativos" },
+  { value: "inactive", label: "Inativos" },
+]
 
 export function ProfessionalsListView() {
-  const { professionals, specialty, isLoading } = useLookups()
+  const router = useRouter()
+  const { professionals, specialties, specialty, isLoading } = useLookups()
   const canManage = useCan("professionals:manage")
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState<StatusFilter>("active")
   const [creating, setCreating] = useState(false)
 
-  const term = search.trim().toLowerCase()
-  const visible = professionals
-    .filter((p) => status === "all" || (status === "active" ? p.active : !p.active))
-    .filter((p) => !term || p.name.toLowerCase().includes(term) || p.registry?.toLowerCase().includes(term))
+  const columns = useMemo<DataTableColumn<Professional>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Profissional",
+        accessorFn: (p) => p.name,
+        meta: { label: "Profissional", alwaysVisible: true, searchValue: (p) => `${p.name} ${p.registry ?? ""}` },
+        cell: ({ row: { original: p } }) => (
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={p.name} size="sm" />
+            <div className="flex min-w-0 flex-col">
+              <Link
+                href={`/profissionais/${p.id}`}
+                className="flex items-center gap-2 truncate font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ProDot colorIndex={p.colorIndex} />
+                <span className="truncate">{p.name}</span>
+              </Link>
+              <span className="text-xs text-muted-foreground">{p.registry || "Sem registro informado"}</span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "specialties",
+        header: "Especialidades",
+        accessorFn: (p) => p.specialtyIds.map((id) => specialty.get(id)?.name ?? "").join(", "),
+        meta: {
+          label: "Especialidades",
+          hideBelow: "sm",
+          searchValue: (p) => p.specialtyIds.map((id) => specialty.get(id)?.name ?? "").join(" "),
+          filter: {
+            kind: "multiselect",
+            label: "Especialidade",
+            options: specialties.map((s) => ({ value: s.id, label: s.name })),
+            value: (p) => p.specialtyIds,
+          },
+        },
+        cell: ({ row: { original: p } }) => (
+          <div className="flex flex-wrap gap-1.5">
+            {p.specialtyIds.map((id) => (
+              <span key={id} className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                {specialty.get(id)?.name ?? "—"}
+              </span>
+            ))}
+          </div>
+        ),
+      },
+      {
+        id: "days",
+        header: "Dias de atendimento",
+        enableSorting: false,
+        meta: {
+          label: "Dias de atendimento",
+          hideBelow: "lg",
+          filter: {
+            kind: "multiselect",
+            label: "Dia de atendimento",
+            options: WEEKDAY_SHORT.map((label, day) => ({ value: String(day), label })),
+            value: (p) => [...new Set(p.schedule.map((s) => String(s.weekday)))],
+          },
+        },
+        cell: ({ row: { original: p } }) => {
+          const days = new Set(p.schedule.map((s) => s.weekday))
+          return (
+            <div className="flex gap-1" aria-label="Dias de atendimento">
+              {WEEKDAY_SHORT.map((label, day) => (
+                <span
+                  key={label}
+                  className={
+                    days.has(day)
+                      ? "w-9 rounded-md bg-primary/10 py-1 text-center text-[11px] font-medium text-primary"
+                      : "w-9 rounded-md bg-muted py-1 text-center text-[11px] text-muted-foreground/60"
+                  }
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          )
+        },
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: (p) => (p.active ? "Ativo" : "Inativo"),
+        meta: {
+          label: "Situação",
+          align: "right",
+          filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (p) => (p.active ? "active" : "inactive") },
+        },
+        cell: ({ row: { original: p } }) => <ActivePill active={p.active} />,
+      },
+    ],
+    [specialty, specialties]
+  )
 
   return (
     <>
@@ -49,75 +144,21 @@ export function ProfessionalsListView() {
         }
       />
 
-      <Toolbar variant="bar" label="Filtros de profissionais">
-        <ToolbarGroup className="w-full sm:max-w-xs">
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome ou registro" label="Buscar profissionais" />
-        </ToolbarGroup>
-        <ToolbarGroup align="end">
-          <HaloToggleGroup
-            items={[
-              { value: "active", label: "Ativos" },
-              { value: "inactive", label: "Inativos" },
-              { value: "all", label: "Todos" },
-            ]}
-            value={status}
-            onValueChange={(v) => v && setStatus(v as StatusFilter)}
-          />
-        </ToolbarGroup>
-      </Toolbar>
-
-      {isLoading ? (
-        <ListSkeleton rows={4} />
-      ) : visible.length === 0 ? (
-        <EmptyState title="Nenhum profissional encontrado" description="Ajuste a busca ou o filtro de situação." />
-      ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((p) => {
-            const days = [...new Set(p.schedule.map((s) => s.weekday))].sort()
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/profissionais/${p.id}`}
-                  className="flex h-full flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
-                  <div className="flex items-start gap-3">
-                    <PersonAvatar name={p.name} />
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="flex items-center gap-2 font-medium">
-                        <ProDot colorIndex={p.colorIndex} />
-                        <span className="truncate">{p.name}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground">{p.registry || "Sem registro informado"}</span>
-                    </div>
-                    <ActivePill active={p.active} />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {p.specialtyIds.map((id) => (
-                      <span key={id} className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                        {specialty.get(id)?.name ?? "—"}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-auto flex gap-1" aria-label="Dias de atendimento">
-                    {WEEKDAY_SHORT.map((label, day) => (
-                      <span
-                        key={label}
-                        className={
-                          days.includes(day)
-                            ? "flex-1 rounded-md bg-primary/10 py-1 text-center text-[11px] font-medium text-primary"
-                            : "flex-1 rounded-md bg-muted py-1 text-center text-[11px] text-muted-foreground/60"
-                        }
-                      >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <SectionCard bodyClassName="p-0">
+        <DataTable
+          label="Profissionais"
+          tableKey="professionals"
+          columns={columns}
+          data={professionals}
+          getRowId={(p) => p.id}
+          defaultState={{ filters: { status: ["active"] }, sort: [{ id: "name", desc: false }] }}
+          searchPlaceholder="Buscar por nome ou registro"
+          isLoading={isLoading}
+          noun={["profissional", "profissionais"]}
+          empty={{ icon: <Stethoscope aria-hidden />, title: "Nenhum profissional cadastrado" }}
+          onRowClick={(p) => router.push(`/profissionais/${p.id}`)}
+        />
+      </SectionCard>
 
       {creating && <ProfessionalFormDialog onClose={() => setCreating(false)} />}
     </>

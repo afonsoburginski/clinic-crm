@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { DoorOpen, Pencil, Plus, Users } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
@@ -14,16 +14,88 @@ import type { Room } from "@/domain/types"
 import { useCan } from "@/shared/lib/current-user"
 import { useLookups } from "@/shared/lib/lookups"
 import { ActivePill, StatePill } from "@/shared/ui/atoms/state-pill"
-import { EmptyState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
+import { SectionCard } from "@/shared/ui/molecules/section-card"
 
 import { useSaveRoom } from "../queries"
+
+const EXCLUSIVE_OPTIONS = [
+  { value: "exclusive", label: "Exclusivas" },
+  { value: "shared", label: "Compartilhadas" },
+]
+const STATUS_OPTIONS = [
+  { value: "active", label: "Ativas" },
+  { value: "inactive", label: "Inativas" },
+]
 
 export function RoomsView() {
   const { rooms, isLoading } = useLookups()
   const canManage = useCan("rooms:manage")
   const [editing, setEditing] = useState<{ item?: Room } | null>(null)
+
+  const columns = useMemo<DataTableColumn<Room>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Sala",
+        accessorFn: (r) => r.name,
+        meta: { label: "Sala", alwaysVisible: true, searchValue: (r) => `${r.name} ${r.notes ?? ""}` },
+        cell: ({ row: { original: r } }) => (
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <DoorOpen className="size-4" aria-hidden />
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <span className="font-medium">{r.name}</span>
+              {r.notes && <span className="line-clamp-1 text-xs text-muted-foreground">{r.notes}</span>}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "capacity",
+        header: "Capacidade",
+        accessorFn: (r) => r.capacity,
+        meta: { label: "Capacidade", hideBelow: "sm", filter: { kind: "range", label: "Capacidade", unit: "pessoas", value: (r) => r.capacity } },
+        cell: ({ row: { original: r } }) => (
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Users className="size-3.5" aria-hidden />
+            {r.capacity} {r.capacity === 1 ? "pessoa" : "pessoas"}
+          </span>
+        ),
+      },
+      {
+        id: "exclusive",
+        header: "Uso",
+        accessorFn: (r) => (r.exclusive ? "Exclusiva" : "Compartilhada"),
+        meta: {
+          label: "Uso",
+          hideBelow: "sm",
+          filter: { kind: "select", label: "Uso", allLabel: "Uso: qualquer", options: EXCLUSIVE_OPTIONS, value: (r) => (r.exclusive ? "exclusive" : "shared") },
+        },
+        cell: ({ row: { original: r } }) => (r.exclusive ? <StatePill tone="warning">Exclusiva</StatePill> : <span className="text-muted-foreground">Compartilhada</span>),
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: (r) => (r.active ? "Ativa" : "Inativa"),
+        meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (r) => (r.active ? "active" : "inactive") } },
+        cell: ({ row: { original: r } }) => <ActivePill active={r.active} />,
+      },
+      ...(canManage
+        ? [
+            actionsColumn<Room>((r) => (
+              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${r.name}`} onClick={() => setEditing({ item: r })}>
+                <Pencil aria-hidden />
+              </Button>
+            )),
+          ]
+        : []),
+    ],
+    [canManage]
+  )
 
   return (
     <>
@@ -41,40 +113,20 @@ export function RoomsView() {
         }
       />
 
-      {isLoading ? (
-        <ListSkeleton rows={4} />
-      ) : rooms.length === 0 ? (
-        <EmptyState title="Nenhuma sala cadastrada" />
-      ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {rooms.map((r) => (
-            <li key={r.id} className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs">
-              <div className="flex items-start justify-between gap-2">
-                <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <DoorOpen className="size-5" aria-hidden />
-                </span>
-                {canManage && (
-                  <Button variant="ghost" size="icon-sm" aria-label={`Editar ${r.name}`} onClick={() => setEditing({ item: r })}>
-                    <Pencil aria-hidden />
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <h2 className="font-medium">{r.name}</h2>
-                {r.notes && <p className="text-sm leading-relaxed text-muted-foreground">{r.notes}</p>}
-              </div>
-              <div className="mt-auto flex flex-wrap items-center gap-2">
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Users className="size-3.5" aria-hidden />
-                  {r.capacity} {r.capacity === 1 ? "pessoa" : "pessoas"}
-                </span>
-                {r.exclusive && <StatePill tone="warning">Exclusiva</StatePill>}
-                <ActivePill active={r.active} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <SectionCard bodyClassName="p-0">
+        <DataTable
+          label="Salas"
+          tableKey="rooms"
+          columns={columns}
+          data={rooms}
+          getRowId={(r) => r.id}
+          defaultState={{ sort: [{ id: "name", desc: false }] }}
+          searchPlaceholder="Nome ou observação"
+          isLoading={isLoading}
+          noun={["sala", "salas"]}
+          empty={{ icon: <DoorOpen aria-hidden />, title: "Nenhuma sala cadastrada" }}
+        />
+      </SectionCard>
 
       {editing && <RoomDialog room={editing.item} onClose={() => setEditing(null)} />}
     </>

@@ -3,30 +3,93 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { HeartHandshake } from "lucide-react"
 import Link from "next/link"
-import { useDeferredValue, useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { guardianSchema, type GuardianInput } from "@/domain/schemas"
 import type { Guardian } from "@/domain/types"
+import type { GuardianWithPatients } from "@/shared/api/api"
 import { useCan } from "@/shared/lib/current-user"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
-import { SearchInput } from "@/shared/ui/molecules/search-input"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { useGuardians, useSaveGuardian } from "../queries"
 import { GuardianFields } from "./guardian-fields"
 
+const LINK_OPTIONS = [
+  { value: "linked", label: "Com pacientes" },
+  { value: "unlinked", label: "Sem pacientes" },
+]
+
 export function GuardiansListView() {
   const canWrite = useCan("guardians:write")
-  const [search, setSearch] = useState("")
-  const deferred = useDeferredValue(search)
-  const { data, isLoading, error, refetch } = useGuardians(deferred)
+  const { data, isLoading, error, refetch, isPlaceholderData } = useGuardians("")
   const [editing, setEditing] = useState<Guardian | null>(null)
+
+  const columns = useMemo<DataTableColumn<GuardianWithPatients>[]>(
+    () => [
+      {
+        id: "guardian",
+        header: "Responsável",
+        accessorFn: ({ guardian }) => guardian.fullName,
+        meta: {
+          label: "Responsável",
+          alwaysVisible: true,
+          searchValue: ({ guardian }) => [guardian.fullName, guardian.phone, guardian.email, guardian.document, guardian.document?.replace(/\D/g, "")].filter(Boolean).join(" "),
+        },
+        cell: ({ row: { original: { guardian } } }) => (
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={guardian.fullName} size="sm" />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">{guardian.fullName}</span>
+              <span className="text-xs text-muted-foreground">
+                {guardian.phone}
+                {guardian.email && <> · {guardian.email}</>}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "patients",
+        header: "Pacientes vinculados",
+        accessorFn: ({ patients }) => patients.length,
+        meta: {
+          label: "Pacientes vinculados",
+          searchValue: ({ patients }) => patients.map(({ patient }) => `${patient.fullName} ${patient.socialName ?? ""}`).join(" "),
+          filter: { kind: "select", label: "Vínculo", allLabel: "Todos os responsáveis", options: LINK_OPTIONS, value: ({ patients }) => (patients.length ? "linked" : "unlinked") },
+        },
+        cell: ({ row: { original: { patients } } }) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            {patients.length ? (
+              patients.map(({ link, patient: p }) => (
+                <Link key={link.id} href={`/pacientes/${p.id}`} className="text-primary hover:underline">
+                  {p.socialName || p.fullName}
+                  <span className="text-muted-foreground"> ({link.relationship})</span>
+                </Link>
+              ))
+            ) : (
+              <span className="text-muted-foreground">Sem pacientes vinculados</span>
+            )}
+          </div>
+        ),
+      },
+      ...(canWrite
+        ? [
+            actionsColumn<GuardianWithPatients>(({ guardian }) => (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(guardian)}>
+                Editar
+              </Button>
+            )),
+          ]
+        : []),
+    ],
+    [canWrite]
+  )
 
   return (
     <>
@@ -35,52 +98,21 @@ export function GuardiansListView() {
         description="Pais, tutores e cuidadores. Novos vínculos são criados a partir da ficha do paciente."
       />
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Busca de responsáveis">
-          <ToolbarGroup className="w-full sm:max-w-xs">
-            <SearchInput value={search} onChange={setSearch} placeholder="Nome, telefone ou CPF" label="Buscar responsáveis" />
-          </ToolbarGroup>
-        </Toolbar>
-        {error ? (
-          <ErrorState error={error} onRetry={() => refetch()} className="m-4" />
-        ) : isLoading ? (
-          <ListSkeleton rows={6} className="p-4" />
-        ) : !data?.length ? (
-          <EmptyState icon={<HeartHandshake aria-hidden />} title="Nenhum responsável encontrado" className="m-4" />
-        ) : (
-          <ul className="divide-y">
-            {data.map(({ guardian, patients }) => (
-              <li key={guardian.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <PersonAvatar name={guardian.fullName} size="sm" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{guardian.fullName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {guardian.phone}
-                      {guardian.email && <> · {guardian.email}</>}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:justify-end">
-                  {patients.length ? (
-                    patients.map(({ link, patient: p }) => (
-                      <Link key={link.id} href={`/pacientes/${p.id}`} className="text-primary hover:underline">
-                        {p.socialName || p.fullName}
-                        <span className="text-muted-foreground"> ({link.relationship})</span>
-                      </Link>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground">Sem pacientes vinculados</span>
-                  )}
-                  {canWrite && (
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(guardian)}>
-                      Editar
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <DataTable
+          label="Responsáveis"
+          tableKey="guardians"
+          columns={columns}
+          data={data ?? []}
+          getRowId={({ guardian }) => guardian.id}
+          defaultState={{ sort: [{ id: "guardian", desc: false }] }}
+          searchPlaceholder="Nome, telefone ou CPF"
+          isLoading={isLoading}
+          isRefreshing={isPlaceholderData}
+          error={error}
+          onRetry={() => refetch()}
+          noun={["responsável", "responsáveis"]}
+          empty={{ icon: <HeartHandshake aria-hidden />, title: "Nenhum responsável cadastrado" }}
+        />
       </SectionCard>
       {editing && <GuardianEditDialog guardian={editing} onClose={() => setEditing(null)} />}
     </>

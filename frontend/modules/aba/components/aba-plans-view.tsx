@@ -3,37 +3,101 @@
 import { Plus, Target } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { AbaPlanStatus } from "@/domain/types"
+import { PLAN_STATUS_LABELS } from "@/domain/aba"
+import type { AbaPlan, AbaPlanStatus } from "@/domain/types"
 import { formatBirthDate } from "@/shared/lib/format"
 import { useLookups } from "@/shared/lib/lookups"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { useAbaPlans } from "../queries"
 import { AbaPlanFormDialog } from "./aba-plan-form-dialog"
 import { PlanStatusPill } from "./aba-status-pill"
 
-const FILTERS: { value: AbaPlanStatus | "all"; label: string }[] = [
-  { value: "active", label: "Ativos" },
-  { value: "draft", label: "Rascunhos" },
-  { value: "closed", label: "Encerrados" },
-  { value: "all", label: "Todos" },
-]
+const STATUS_OPTIONS = (Object.keys(PLAN_STATUS_LABELS) as AbaPlanStatus[]).map((value) => ({ value, label: PLAN_STATUS_LABELS[value] }))
 
 export function AbaPlansView() {
   const router = useRouter()
-  const { patient, professional } = useLookups()
-  const [status, setStatus] = useState<AbaPlanStatus | "all">("active")
+  const { patient, professional, professionals } = useLookups()
   const [creating, setCreating] = useState(false)
-  const { data, isLoading, error, refetch } = useAbaPlans(status)
+  const { data, isLoading, error, refetch } = useAbaPlans("all")
+
+  const columns = useMemo<DataTableColumn<AbaPlan>[]>(
+    () => [
+      {
+        id: "plan",
+        header: "Plano",
+        accessorFn: (plan) => plan.title,
+        meta: {
+          label: "Plano",
+          alwaysVisible: true,
+          searchValue: (plan) => {
+            const p = patient.get(plan.patientId)
+            return `${plan.title} ${p?.fullName ?? ""} ${p?.socialName ?? ""}`
+          },
+        },
+        cell: ({ row: { original: plan } }) => {
+          const p = patient.get(plan.patientId)
+          return (
+            <div className="flex min-w-0 flex-col">
+              <Link
+                href={`/aba/${plan.id}`}
+                className="truncate font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {plan.title}
+              </Link>
+              <span className="truncate text-xs text-muted-foreground">{p ? p.socialName || p.fullName : "Paciente"}</span>
+            </div>
+          )
+        },
+      },
+      {
+        id: "responsible",
+        header: "Responsável",
+        accessorFn: (plan) => professional.get(plan.responsibleProfessionalId)?.name ?? "",
+        meta: {
+          label: "Responsável",
+          hideBelow: "md",
+          searchValue: (plan) => professional.get(plan.responsibleProfessionalId)?.name ?? "",
+          filter: { kind: "multiselect", label: "Responsável", options: professionals.map((pro) => ({ value: pro.id, label: pro.name })), value: (plan) => plan.responsibleProfessionalId },
+        },
+        cell: ({ row: { original: plan } }) => professional.get(plan.responsibleProfessionalId)?.name ?? "—",
+      },
+      {
+        id: "startDate",
+        header: "Início",
+        accessorFn: (plan) => plan.startDate,
+        meta: {
+          label: "Início",
+          hideBelow: "sm",
+          className: "text-muted-foreground",
+          filter: { kind: "date-range", label: "Início", value: (plan) => plan.startDate },
+        },
+        cell: ({ row: { original: plan } }) => formatBirthDate(plan.startDate),
+      },
+      {
+        id: "goals",
+        header: "Objetivos",
+        accessorFn: (plan) => plan.goals.length,
+        meta: { label: "Objetivos", hideBelow: "sm", className: "text-muted-foreground tabular-nums", filter: { kind: "range", label: "Objetivos", value: (plan) => plan.goals.length } },
+        cell: ({ row: { original: plan } }) => plan.goals.length,
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: (plan) => PLAN_STATUS_LABELS[plan.status],
+        meta: { label: "Situação", align: "right", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (plan) => plan.status } },
+        cell: ({ row: { original: plan } }) => <PlanStatusPill status={plan.status} />,
+      },
+    ],
+    [patient, professional, professionals]
+  )
 
   return (
     <>
@@ -50,57 +114,21 @@ export function AbaPlansView() {
         }
       />
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Filtros de planos">
-          <ToolbarGroup>
-            <HaloToggleGroup items={FILTERS} value={status} onValueChange={(v) => v && setStatus(v as AbaPlanStatus | "all")} />
-          </ToolbarGroup>
-        </Toolbar>
-        {error ? (
-          <ErrorState error={error} onRetry={() => refetch()} className="m-4" />
-        ) : isLoading ? (
-          <ListSkeleton rows={5} className="p-4" />
-        ) : !data?.length ? (
-          <EmptyState icon={<Target aria-hidden />} title="Nenhum plano nesta situação" className="m-4" />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-5">Plano</TableHead>
-                <TableHead className="hidden md:table-cell">Responsável</TableHead>
-                <TableHead className="hidden sm:table-cell">Início</TableHead>
-                <TableHead className="hidden sm:table-cell">Objetivos</TableHead>
-                <TableHead className="pr-5 text-right">Situação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((plan) => {
-                const p = patient.get(plan.patientId)
-                return (
-                  <TableRow key={plan.id} className="cursor-pointer" onClick={() => router.push(`/aba/${plan.id}`)}>
-                    <TableCell className="pl-5">
-                      <div className="flex min-w-0 flex-col">
-                        <Link
-                          href={`/aba/${plan.id}`}
-                          className="truncate font-medium hover:underline focus-visible:underline focus-visible:outline-none"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {plan.title}
-                        </Link>
-                        <span className="truncate text-xs text-muted-foreground">{p ? p.socialName || p.fullName : "Paciente"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{professional.get(plan.responsibleProfessionalId)?.name ?? "—"}</TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">{formatBirthDate(plan.startDate)}</TableCell>
-                    <TableCell className="hidden text-muted-foreground tabular-nums sm:table-cell">{plan.goals.length}</TableCell>
-                    <TableCell className="pr-5 text-right">
-                      <PlanStatusPill status={plan.status} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable
+          label="Planos ABA"
+          tableKey="aba-plans"
+          columns={columns}
+          data={data ?? []}
+          getRowId={(plan) => plan.id}
+          defaultState={{ filters: { status: ["active"] }, sort: [{ id: "startDate", desc: true }] }}
+          searchPlaceholder="Plano ou paciente"
+          isLoading={isLoading}
+          error={error}
+          onRetry={() => refetch()}
+          noun={["plano", "planos"]}
+          empty={{ icon: <Target aria-hidden />, title: "Nenhum plano cadastrado" }}
+          onRowClick={(plan) => router.push(`/aba/${plan.id}`)}
+        />
       </SectionCard>
 
       {creating && <AbaPlanFormDialog onClose={() => setCreating(false)} onCreated={(id) => router.push(`/aba/${id}`)} />}

@@ -2,27 +2,79 @@
 
 import { FileText } from "lucide-react"
 import Link from "next/link"
-import { useDeferredValue, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useMemo } from "react"
 
 import { formatAge, formatDate } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
-import { SearchInput } from "@/shared/ui/molecules/search-input"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { useChartPatients } from "../queries"
 
-export function RecordsHomeView() {
-  const { data, isLoading, error, refetch } = useChartPatients()
-  const [search, setSearch] = useState("")
-  const deferred = useDeferredValue(search).trim().toLowerCase()
+type ChartRow = NonNullable<ReturnType<typeof useChartPatients>["data"]>[number]
 
-  const rows = useMemo(
-    () => (data ?? []).filter(({ patient }) => !deferred || `${patient.fullName} ${patient.socialName ?? ""} ${patient.code}`.toLowerCase().includes(deferred)),
-    [data, deferred]
+export function RecordsHomeView() {
+  const router = useRouter()
+  const { data, isLoading, error, refetch } = useChartPatients()
+
+  const columns = useMemo<DataTableColumn<ChartRow>[]>(
+    () => [
+      {
+        id: "patient",
+        header: "Paciente",
+        accessorFn: ({ patient }) => patient.socialName || patient.fullName,
+        meta: { label: "Paciente", alwaysVisible: true, searchValue: ({ patient }) => `${patient.fullName} ${patient.socialName ?? ""} ${patient.code}` },
+        cell: ({ row: { original: { patient } } }) => (
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={patient.socialName || patient.fullName} size="sm" />
+            <div className="flex min-w-0 flex-col">
+              <Link
+                href={`/prontuarios/${patient.id}`}
+                className="truncate text-sm font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {patient.socialName || patient.fullName}
+              </Link>
+              <span className="text-xs text-muted-foreground">
+                <span className="font-mono">{patient.code}</span> · {formatAge(patient.birthDate)}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "drafts",
+        header: "Rascunhos",
+        accessorFn: ({ drafts }) => drafts,
+        meta: { label: "Rascunhos", hideBelow: "sm", filter: { kind: "range", label: "Rascunhos", value: ({ drafts }) => drafts } },
+        cell: ({ row: { original: { drafts } } }) =>
+          drafts > 0 ? <StatePill tone="warning">{drafts === 1 ? "1 rascunho" : `${drafts} rascunhos`}</StatePill> : <span className="text-muted-foreground">—</span>,
+      },
+      {
+        id: "total",
+        header: "Registros",
+        accessorFn: ({ total }) => total,
+        meta: { label: "Registros", className: "text-muted-foreground", filter: { kind: "range", label: "Registros", value: ({ total }) => total } },
+        cell: ({ row: { original: { total } } }) => (total ? `${total} ${total === 1 ? "registro" : "registros"}` : "Sem registros"),
+      },
+      {
+        id: "lastAt",
+        header: "Último registro",
+        accessorFn: ({ lastAt }) => lastAt ?? "",
+        meta: {
+          label: "Último registro",
+          align: "right",
+          hideBelow: "md",
+          className: "text-muted-foreground",
+          filter: { kind: "date-range", label: "Último registro", value: ({ lastAt }) => lastAt },
+        },
+        cell: ({ row: { original: { lastAt } } }) => (lastAt ? formatDate(lastAt) : "—"),
+      },
+    ],
+    []
   )
 
   return (
@@ -32,48 +84,25 @@ export function RecordsHomeView() {
         description="Anamneses, evoluções e documentos clínicos dos pacientes que você atende. Visível só para profissionais com vínculo."
       />
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Busca de prontuários">
-          <ToolbarGroup className="w-full sm:max-w-xs">
-            <SearchInput value={search} onChange={setSearch} placeholder="Nome ou código" label="Buscar prontuário" />
-          </ToolbarGroup>
-        </Toolbar>
-        {error ? (
-          <ErrorState error={error} onRetry={() => refetch()} className="m-4" />
-        ) : isLoading ? (
-          <ListSkeleton rows={6} className="p-4" />
-        ) : !rows.length ? (
-          <EmptyState
-            icon={<FileText aria-hidden />}
-            title={search ? "Nenhum prontuário encontrado" : "Nenhum paciente vinculado a você"}
-            description={search ? "Tente outro nome ou código." : "Pacientes aparecem aqui quando você é o profissional de referência ou tem atendimento agendado."}
-            className="m-4"
-          />
-        ) : (
-          <ul className="divide-y">
-            {rows.map(({ patient, total, drafts, lastAt }) => (
-              <li key={patient.id}>
-                <Link
-                  href={`/prontuarios/${patient.id}`}
-                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-                >
-                  <PersonAvatar name={patient.socialName || patient.fullName} size="sm" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{patient.socialName || patient.fullName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      <span className="font-mono">{patient.code}</span> · {formatAge(patient.birthDate)}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                    {drafts > 0 && <StatePill tone="warning">{drafts === 1 ? "1 rascunho" : `${drafts} rascunhos`}</StatePill>}
-                    <span className="text-xs text-muted-foreground">
-                      {total ? `${total} ${total === 1 ? "registro" : "registros"}${lastAt ? ` · ${formatDate(lastAt)}` : ""}` : "Sem registros"}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <DataTable
+          label="Prontuários"
+          tableKey="clinical-charts"
+          columns={columns}
+          data={data ?? []}
+          getRowId={({ patient }) => patient.id}
+          defaultState={{ sort: [{ id: "patient", desc: false }] }}
+          searchPlaceholder="Nome ou código"
+          isLoading={isLoading}
+          error={error}
+          onRetry={() => refetch()}
+          noun={["paciente", "pacientes"]}
+          empty={{
+            icon: <FileText aria-hidden />,
+            title: "Nenhum paciente vinculado a você",
+            description: "Pacientes aparecem aqui quando você é o profissional de referência ou tem atendimento agendado.",
+          }}
+          onRowClick={({ patient }) => router.push(`/prontuarios/${patient.id}`)}
+        />
       </SectionCard>
     </>
   )

@@ -1,17 +1,14 @@
 "use client"
 
-import { ChevronDown } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 
 import type { AuditEntry } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { formatDateTime } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { useAuditLog } from "../queries"
 
@@ -39,17 +36,88 @@ const ACTION_LABELS: Record<string, string> = {
   password_reset: "Senha redefinida",
 }
 
-export function AuditView() {
-  const [resource, setResource] = useState("all")
-  const [actorId, setActorId] = useState("all")
-  const query = useAuditLog({ resource, actorId })
-  const allQuery = useAuditLog({ resource: "all", actorId: "all" })
+const RESOURCE_OPTIONS = Object.entries(RESOURCE_LABELS).map(([value, label]) => ({ value, label }))
+const ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }))
 
-  const actorOptions = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const e of allQuery.data ?? []) seen.set(e.actorId, e.actorName)
-    return [{ value: "all", label: "Todas as pessoas" }, ...[...seen].map(([value, label]) => ({ value, label }))]
-  }, [allQuery.data])
+export function AuditView() {
+  const query = useAuditLog({ resource: "all", actorId: "all" })
+  const entries = query.data ?? []
+
+  const columns = useMemo<DataTableColumn<AuditEntry>[]>(() => {
+    const actors = new Map<string, string>()
+    for (const e of entries) actors.set(e.actorId, e.actorName)
+    return [
+      {
+        id: "at",
+        header: "Quando",
+        accessorFn: (e) => e.at,
+        meta: { label: "Quando", filter: { kind: "date-range", label: "Período", value: (e) => e.at } },
+        cell: ({ row: { original: e } }) => (
+          <time dateTime={e.at} className="font-mono text-xs text-muted-foreground">
+            {formatDateTime(e.at)}
+          </time>
+        ),
+      },
+      {
+        id: "actor",
+        header: "Pessoa",
+        accessorFn: (e) => e.actorName,
+        meta: {
+          label: "Pessoa",
+          searchValue: (e) => e.actorName,
+          filter: { kind: "multiselect", label: "Pessoa", options: [...actors].map(([value, label]) => ({ value, label })), value: (e) => e.actorId },
+        },
+        cell: ({ row: { original: e } }) => (
+          <span className="flex items-center gap-2.5">
+            <PersonAvatar name={e.actorName} className="size-7" />
+            <span className="font-medium">{e.actorName}</span>
+          </span>
+        ),
+      },
+      {
+        id: "summary",
+        header: "Evento",
+        accessorFn: (e) => e.summary,
+        meta: { label: "Evento", alwaysVisible: true, searchValue: (e) => e.summary },
+        cell: ({ row: { original: e } }) => {
+          const count = e.changes ? Object.keys(e.changes).length : 0
+          return (
+            <div className="flex min-w-0 flex-col">
+              <span className="text-pretty">{e.summary}</span>
+              {count > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {count} campo{count === 1 ? "" : "s"} alterado{count === 1 ? "" : "s"}
+                </span>
+              )}
+            </div>
+          )
+        },
+      },
+      {
+        id: "resource",
+        header: "Recurso",
+        accessorFn: (e) => RESOURCE_LABELS[e.resource] ?? e.resource,
+        meta: {
+          label: "Recurso",
+          hideBelow: "md",
+          filter: { kind: "multiselect", label: "Recurso", options: RESOURCE_OPTIONS, value: (e) => e.resource },
+        },
+        cell: ({ row: { original: e } }) => RESOURCE_LABELS[e.resource] ?? e.resource,
+      },
+      {
+        id: "action",
+        header: "Ação",
+        accessorFn: (e) => ACTION_LABELS[e.action] ?? e.action,
+        meta: {
+          label: "Ação",
+          hideBelow: "md",
+          className: "text-muted-foreground",
+          filter: { kind: "multiselect", label: "Ação", options: ACTION_OPTIONS, value: (e) => e.action },
+        },
+        cell: ({ row: { original: e } }) => ACTION_LABELS[e.action] ?? e.action,
+      },
+    ]
+  }, [entries])
 
   return (
     <>
@@ -57,93 +125,40 @@ export function AuditView() {
         title="Auditoria"
         description="Registro imutável de quem alterou o quê. Conteúdo clínico não aparece aqui — apenas o fato da alteração."
       />
-      <SectionCard
-        title="Eventos"
-        description={query.data ? `${query.data.length} registro${query.data.length === 1 ? "" : "s"}` : undefined}
-        bodyClassName="p-0"
-      >
-        <Toolbar label="Filtros da auditoria">
-          <ToolbarGroup>
-            <SimpleSelect
-              ariaLabel="Filtrar por recurso"
-              value={resource}
-              onChange={setResource}
-              className="w-48"
-              options={[
-                { value: "all", label: "Todos os recursos" },
-                ...Object.entries(RESOURCE_LABELS).map(([value, label]) => ({ value, label })),
-              ]}
-            />
-            <SimpleSelect ariaLabel="Filtrar por pessoa" value={actorId} onChange={setActorId} className="w-48" options={actorOptions} />
-          </ToolbarGroup>
-        </Toolbar>
-        {query.isPending ? (
-          <ListSkeleton rows={8} className="p-5" />
-        ) : query.isError ? (
-          <ErrorState error={query.error} onRetry={() => query.refetch()} />
-        ) : query.data.length === 0 ? (
-          <EmptyState title="Nenhum evento" description="Ajuste os filtros ou faça uma alteração no sistema." />
-        ) : (
-          <ol className="divide-y">
-            {query.data.slice(0, 200).map((entry) => (
-              <AuditRow key={entry.id} entry={entry} />
-            ))}
-          </ol>
-        )}
+      <SectionCard title="Eventos" bodyClassName="p-0">
+        <DataTable
+          label="Eventos de auditoria"
+          tableKey="audit"
+          columns={columns}
+          data={entries}
+          getRowId={(e) => e.id}
+          defaultState={{ sort: [{ id: "at", desc: true }] }}
+          searchPlaceholder="Pessoa ou evento"
+          isLoading={query.isPending}
+          error={query.error}
+          onRetry={() => query.refetch()}
+          noun={["registro", "registros"]}
+          empty={{ title: "Nenhum evento", description: "Faça uma alteração no sistema para ver o registro aqui." }}
+          renderExpanded={(e) => (e.changes && Object.keys(e.changes).length ? <AuditChanges changes={e.changes} /> : null)}
+        />
       </SectionCard>
     </>
   )
 }
 
-function AuditRow({ entry }: { entry: AuditEntry }) {
-  const changes = entry.changes ? Object.entries(entry.changes) : []
-
-  const body = (
-    <div className="flex items-start gap-3 px-5 py-3.5 text-left">
-      <PersonAvatar name={entry.actorName} className="mt-0.5 size-8" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-sm leading-snug text-pretty">
-          <span className="font-medium">{entry.actorName}</span>{" "}
-          <span className="text-muted-foreground">·</span> {entry.summary}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <time dateTime={entry.at} className="font-mono">
-            {formatDateTime(entry.at)}
-          </time>
-          <span>{RESOURCE_LABELS[entry.resource] ?? entry.resource}</span>
-          <span>{ACTION_LABELS[entry.action] ?? entry.action}</span>
-          {changes.length > 0 && <span>{changes.length} campo{changes.length === 1 ? "" : "s"}</span>}
-        </div>
-      </div>
-      {changes.length > 0 && (
-        <ChevronDown className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
-      )}
-    </div>
-  )
-
-  if (changes.length === 0) return <li>{body}</li>
-
+function AuditChanges({ changes }: { changes: NonNullable<AuditEntry["changes"]> }) {
   return (
-    <li>
-      <details className="group">
-        <summary className="cursor-pointer list-none hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-          {body}
-        </summary>
-        <div>
-          <dl className="mx-5 mb-4 ml-16 grid gap-px overflow-hidden rounded-lg border bg-border text-xs">
-            {changes.map(([key, change]) => (
-              <div key={key} className="grid grid-cols-[8rem_minmax(0,1fr)] bg-card">
-                <dt className="px-3 py-2 font-mono text-muted-foreground">{key}</dt>
-                <dd className="flex flex-col gap-0.5 px-3 py-2 font-mono">
-                  <span className={cn("break-words text-muted-foreground line-through")}>{show(change.from)}</span>
-                  <span className="break-words">{show(change.to)}</span>
-                </dd>
-              </div>
-            ))}
-          </dl>
+    <dl className="mx-5 mb-4 ml-16 grid gap-px overflow-hidden rounded-lg border bg-border text-xs">
+      {Object.entries(changes).map(([key, change]) => (
+        <div key={key} className="grid grid-cols-[8rem_minmax(0,1fr)] bg-card">
+          <dt className="px-3 py-2 font-mono text-muted-foreground">{key}</dt>
+          <dd className="flex flex-col gap-0.5 px-3 py-2 font-mono">
+            <span className={cn("break-words text-muted-foreground line-through")}>{show(change.from)}</span>
+            <span className="break-words">{show(change.to)}</span>
+          </dd>
         </div>
-      </details>
-    </li>
+      ))}
+    </dl>
   )
 }
 

@@ -4,7 +4,6 @@ import { KeyRound, Pencil, Plus, UserCheck, UserX } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ROLE_LABELS } from "@/domain/permissions"
 import type { UserAccount } from "@/domain/types"
 import { useCurrentUser } from "@/shared/lib/current-user"
@@ -12,14 +11,18 @@ import { useLookups } from "@/shared/lib/lookups"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { ActivePill, StatePill } from "@/shared/ui/atoms/state-pill"
 import { ConfirmDialog } from "@/shared/ui/molecules/confirm-dialog"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { actionsColumn, DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
-import { SearchInput } from "@/shared/ui/molecules/search-input"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
 
 import { useRoles, useSetUserActive, useUsers } from "../queries"
 import { PasswordResetDialog } from "./password-reset-dialog"
 import { UserFormDialog } from "./user-form-dialog"
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Ativos" },
+  { value: "inactive", label: "Inativos" },
+]
 
 export function UsersTab() {
   const users = useUsers()
@@ -27,7 +30,6 @@ export function UsersTab() {
   const { professional } = useLookups()
   const { user: me } = useCurrentUser()
   const setActive = useSetUserActive()
-  const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<{ user?: UserAccount } | null>(null)
   const [passwordFor, setPasswordFor] = useState<UserAccount | null>(null)
   const [deactivating, setDeactivating] = useState<UserAccount | null>(null)
@@ -36,10 +38,90 @@ export function UsersTab() {
     () => new Map((roles.data ?? []).map((role) => [role.key as string, role.label])),
     [roles.data]
   )
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return (users.data ?? []).filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-  }, [users.data, search])
+  const labelOf = (role: string) => roleLabel.get(role) ?? ROLE_LABELS[role as keyof typeof ROLE_LABELS] ?? role
+
+  const columns = useMemo<DataTableColumn<UserAccount>[]>(
+    () => [
+      {
+        id: "user",
+        header: "Usuário",
+        accessorFn: (account) => account.name,
+        meta: { label: "Usuário", alwaysVisible: true, searchValue: (account) => `${account.name} ${account.email}` },
+        cell: ({ row: { original: account } }) => (
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={account.name} />
+            <div className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-2 font-medium">
+                {account.name}
+                {me?.id === account.id && <StatePill tone="info">Você</StatePill>}
+              </span>
+              <span className="text-xs text-muted-foreground">{account.email}</span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "roles",
+        header: "Papéis",
+        accessorFn: (account) => account.roles.map(labelOf).join(", "),
+        meta: {
+          label: "Papéis",
+          searchValue: (account) => account.roles.map(labelOf).join(" "),
+          filter: { kind: "multiselect", label: "Papel", options: (roles.data ?? []).map((role) => ({ value: role.key as string, label: role.label })), value: (account) => account.roles },
+        },
+        cell: ({ row: { original: account } }) => (
+          <div className="flex flex-wrap gap-1.5">
+            {account.roles.map((role) => (
+              <StatePill key={role} tone="neutral">
+                {labelOf(role)}
+              </StatePill>
+            ))}
+          </div>
+        ),
+      },
+      {
+        id: "professional",
+        header: "Profissional vinculado",
+        accessorFn: (account) => (account.professionalId ? (professional.get(account.professionalId)?.name ?? "Profissional") : ""),
+        meta: { label: "Profissional vinculado", hideBelow: "md", className: "text-muted-foreground" },
+        cell: ({ row: { original: account } }) => (account.professionalId ? (professional.get(account.professionalId)?.name ?? "Profissional") : "—"),
+      },
+      {
+        id: "status",
+        header: "Situação",
+        accessorFn: (account) => (account.active ? "Ativo" : "Inativo"),
+        meta: { label: "Situação", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (account) => (account.active ? "active" : "inactive") } },
+        cell: ({ row: { original: account } }) => <ActivePill active={account.active} />,
+      },
+      actionsColumn<UserAccount>((account) => (
+        <PermissionGate permission="users:manage">
+          <Button variant="ghost" size="icon-sm" aria-label={`Editar ${account.name}`} onClick={() => setEditing({ user: account })}>
+            <Pencil aria-hidden />
+          </Button>
+          <Button variant="ghost" size="icon-sm" aria-label={`Redefinir a senha de ${account.name}`} onClick={() => setPasswordFor(account)}>
+            <KeyRound aria-hidden />
+          </Button>
+          {account.active ? (
+            <Button variant="ghost" size="icon-sm" aria-label={`Desativar ${account.name}`} onClick={() => setDeactivating(account)}>
+              <UserX aria-hidden />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Reativar ${account.name}`}
+              disabled={setActive.isPending}
+              onClick={() => setActive.mutate({ id: account.id, active: true })}
+            >
+              <UserCheck aria-hidden />
+            </Button>
+          )}
+        </PermissionGate>
+      )),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- labelOf deriva de roleLabel
+    [roleLabel, roles.data, professional, me?.id, setActive.isPending]
+  )
 
   return (
     <SectionCard
@@ -55,101 +137,20 @@ export function UsersTab() {
       }
       bodyClassName="p-0"
     >
-      <div className="flex flex-wrap items-center gap-3 border-b px-5 py-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nome ou e-mail…" label="Buscar usuários" />
-        {users.data && (
-          <span className="ml-auto text-sm text-muted-foreground">
-            {filtered.length} {filtered.length === 1 ? "usuário" : "usuários"}
-          </span>
-        )}
-      </div>
-
-      {users.isPending ? (
-        <div className="p-5">
-          <ListSkeleton rows={5} />
-        </div>
-      ) : users.isError ? (
-        <ErrorState error={users.error} onRetry={() => users.refetch()} />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title={search ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
-          description={search ? "Ajuste a busca para ver outros usuários." : undefined}
-        />
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="px-5">Usuário</TableHead>
-              <TableHead>Papéis</TableHead>
-              <TableHead>Profissional vinculado</TableHead>
-              <TableHead>Situação</TableHead>
-              <TableHead className="px-5 text-right">
-                <span className="sr-only">Ações</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((account) => (
-              <TableRow key={account.id}>
-                <TableCell className="px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <PersonAvatar name={account.name} />
-                    <div className="flex min-w-0 flex-col">
-                      <span className="flex items-center gap-2 font-medium">
-                        {account.name}
-                        {me?.id === account.id && <StatePill tone="info">Você</StatePill>}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{account.email}</span>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1.5">
-                    {account.roles.map((role) => (
-                      <StatePill key={role} tone="neutral">
-                        {roleLabel.get(role) ?? ROLE_LABELS[role]}
-                      </StatePill>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {account.professionalId ? (professional.get(account.professionalId)?.name ?? "Profissional") : "—"}
-                </TableCell>
-                <TableCell>
-                  <ActivePill active={account.active} />
-                </TableCell>
-                <TableCell className="px-5 text-right">
-                  <PermissionGate permission="users:manage">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon-sm" aria-label={`Editar ${account.name}`} onClick={() => setEditing({ user: account })}>
-                        <Pencil aria-hidden />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" aria-label={`Redefinir a senha de ${account.name}`} onClick={() => setPasswordFor(account)}>
-                        <KeyRound aria-hidden />
-                      </Button>
-                      {account.active ? (
-                        <Button variant="ghost" size="icon-sm" aria-label={`Desativar ${account.name}`} onClick={() => setDeactivating(account)}>
-                          <UserX aria-hidden />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Reativar ${account.name}`}
-                          disabled={setActive.isPending}
-                          onClick={() => setActive.mutate({ id: account.id, active: true })}
-                        >
-                          <UserCheck aria-hidden />
-                        </Button>
-                      )}
-                    </div>
-                  </PermissionGate>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <DataTable
+        label="Usuários"
+        tableKey="users"
+        columns={columns}
+        data={users.data ?? []}
+        getRowId={(account) => account.id}
+        defaultState={{ sort: [{ id: "user", desc: false }] }}
+        searchPlaceholder="Buscar por nome ou e-mail…"
+        isLoading={users.isPending}
+        error={users.error}
+        onRetry={() => users.refetch()}
+        noun={["usuário", "usuários"]}
+        empty={{ title: "Nenhum usuário cadastrado" }}
+      />
 
       {editing && <UserFormDialog user={editing.user} roles={roles.data} onClose={() => setEditing(null)} />}
       {passwordFor && <PasswordResetDialog user={passwordFor} onClose={() => setPasswordFor(null)} />}

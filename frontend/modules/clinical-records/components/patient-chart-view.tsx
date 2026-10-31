@@ -4,34 +4,71 @@ import { FilePlus2, FileText } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
-import { RECORD_KIND_LABELS } from "@/domain/clinical-record"
-import type { ClinicalRecord, ClinicalRecordKind } from "@/domain/types"
+import { RECORD_KIND_LABELS, RECORD_STATUS_LABELS } from "@/domain/clinical-record"
+import type { ClinicalRecord, ClinicalRecordKind, ClinicalRecordStatus } from "@/domain/types"
 import { formatAge, formatDateTime } from "@/shared/lib/format"
 import { PersonAvatar } from "@/shared/ui/atoms/person-avatar"
 import { StatePill } from "@/shared/ui/atoms/state-pill"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
+import { ErrorState } from "@/shared/ui/molecules/feedback-states"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { PermissionGate } from "@/shared/ui/molecules/permission-gate"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
 
 import { useChartPatient, useRecords } from "../queries"
 import { RecordDetailDialog } from "./record-detail-dialog"
 import { RecordFormDialog } from "./record-form-dialog"
 import { RecordStatusPill } from "./record-status-pill"
 
-const FILTERS: { value: ClinicalRecordKind | "all"; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "anamnesis", label: "Anamneses" },
-  { value: "evolution", label: "Evoluções" },
-  { value: "document", label: "Documentos" },
+const KIND_OPTIONS = (Object.keys(RECORD_KIND_LABELS) as ClinicalRecordKind[]).map((value) => ({ value, label: RECORD_KIND_LABELS[value] }))
+const STATUS_OPTIONS = (Object.keys(RECORD_STATUS_LABELS) as ClinicalRecordStatus[]).map((value) => ({ value, label: RECORD_STATUS_LABELS[value] }))
+
+const COLUMNS: DataTableColumn<ClinicalRecord>[] = [
+  {
+    id: "title",
+    header: "Registro",
+    accessorFn: (r) => r.title,
+    meta: { label: "Registro", alwaysVisible: true, searchValue: (r) => `${r.title} ${r.authorName}` },
+    cell: ({ row: { original: r } }) => (
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-sm font-medium">{r.title}</span>
+        <span className="text-xs text-muted-foreground">
+          {RECORD_KIND_LABELS[r.kind]} · v{r.version} · {r.authorName}
+        </span>
+      </div>
+    ),
+  },
+  {
+    id: "kind",
+    header: "Tipo",
+    accessorFn: (r) => RECORD_KIND_LABELS[r.kind],
+    meta: { label: "Tipo", hideBelow: "md", filter: { kind: "multiselect", label: "Tipo", options: KIND_OPTIONS, value: (r) => r.kind } },
+    cell: ({ row: { original: r } }) => RECORD_KIND_LABELS[r.kind],
+  },
+  {
+    id: "createdAt",
+    header: "Criado em",
+    accessorFn: (r) => r.createdAt,
+    meta: { label: "Criado em", hideBelow: "sm", className: "text-muted-foreground", filter: { kind: "date-range", label: "Criado em", value: (r) => r.createdAt } },
+    cell: ({ row: { original: r } }) => formatDateTime(r.createdAt),
+  },
+  {
+    id: "status",
+    header: "Situação",
+    accessorFn: (r) => RECORD_STATUS_LABELS[r.status],
+    meta: { label: "Situação", align: "right", filter: { kind: "status", label: "Situação", options: STATUS_OPTIONS, value: (r) => r.status } },
+    cell: ({ row: { original: r } }) => (
+      <span className="inline-flex gap-1.5">
+        {r.rectifiesId && <StatePill tone="neutral">Retificação</StatePill>}
+        <RecordStatusPill status={r.status} />
+      </span>
+    ),
+  },
 ]
 
 export function PatientChartView({ patientId }: { patientId: string }) {
   const patientQuery = useChartPatient(patientId)
-  const [kind, setKind] = useState<ClinicalRecordKind | "all">("all")
-  const records = useRecords(patientId, kind)
+  const records = useRecords(patientId, "all")
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<ClinicalRecord | "new" | null>(null)
 
@@ -66,44 +103,19 @@ export function PatientChartView({ patientId }: { patientId: string }) {
 
 
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Filtro de registros">
-          <ToolbarGroup>
-            <HaloToggleGroup items={FILTERS} value={kind} onValueChange={(v) => v && setKind(v as ClinicalRecordKind | "all")} />
-          </ToolbarGroup>
-        </Toolbar>
-        {records.isLoading ? (
-          <ListSkeleton rows={4} className="p-4" />
-        ) : !records.data?.length ? (
-          <EmptyState
-            icon={<FileText aria-hidden />}
-            title="Nenhum registro"
-            description="Crie uma anamnese, evolução ou documento clínico. Todo registro começa como rascunho."
-            className="m-4"
-          />
-        ) : (
-          <ul className="divide-y">
-            {records.data.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => setDetailId(r.id)}
-                  className="flex w-full flex-col gap-2 px-5 py-3.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-sm font-medium">{r.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {RECORD_KIND_LABELS[r.kind]} · v{r.version} · {r.authorName} · {formatDateTime(r.createdAt)}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    {r.rectifiesId && <StatePill tone="neutral">Retificação</StatePill>}
-                    <RecordStatusPill status={r.status} />
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <DataTable
+          label="Registros do prontuário"
+          tableKey="clinical-records"
+          columns={COLUMNS}
+          data={records.data ?? []}
+          getRowId={(r) => r.id}
+          defaultState={{ sort: [{ id: "createdAt", desc: true }] }}
+          searchPlaceholder="Título ou autor"
+          isLoading={records.isLoading}
+          noun={["registro", "registros"]}
+          empty={{ icon: <FileText aria-hidden />, title: "Nenhum registro", description: "Crie uma anamnese, evolução ou documento clínico. Todo registro começa como rascunho." }}
+          onRowClick={(r) => setDetailId(r.id)}
+        />
       </SectionCard>
 
       {editing && (

@@ -4,42 +4,85 @@ import { FolderOpen, Plus } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { HaloToggleGroup } from "@/components/ui/halo-toggle-group"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { activeReleases, CLASSIFICATION_LABELS, DOCUMENT_STATUS_LABELS, documentAccess } from "@/domain/documents"
 import type { DocumentClassification, DocumentStatus, PatientDocument } from "@/domain/types"
 import { useCurrentUser } from "@/shared/lib/current-user"
 import { formatDate } from "@/shared/lib/format"
-import { EmptyState, ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
+import type { DocumentRow } from "@/shared/api/api"
+import { DataTable, type DataTableColumn } from "@/shared/ui/data-table"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
 import { SectionCard } from "@/shared/ui/molecules/section-card"
-import { Toolbar, ToolbarGroup } from "@/shared/ui/molecules/toolbar"
-import { SimpleSelect } from "@/shared/ui/molecules/simple-select"
 
 import { useDocuments } from "../queries"
 import { DocumentDetailDialog } from "./document-detail-dialog"
 import { DocumentFormDialog } from "./document-form-dialog"
 import { ClassificationPill, DocumentStatusPill } from "./document-pills"
 
-const CLASS_FILTERS: { value: DocumentClassification | "all"; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "clinical", label: CLASSIFICATION_LABELS.clinical },
-  { value: "administrative", label: CLASSIFICATION_LABELS.administrative },
-  { value: "financial", label: CLASSIFICATION_LABELS.financial },
-]
+const CLASSIFICATION_OPTIONS = (Object.keys(CLASSIFICATION_LABELS) as DocumentClassification[]).map((value) => ({ value, label: CLASSIFICATION_LABELS[value] }))
+const STATUS_OPTIONS = (Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[]).map((value) => ({ value, label: DOCUMENT_STATUS_LABELS[value] }))
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "Todos os estados" },
-  ...(Object.keys(DOCUMENT_STATUS_LABELS) as DocumentStatus[]).map((value) => ({ value, label: DOCUMENT_STATUS_LABELS[value] })),
+const releasedCount = ({ doc }: DocumentRow) => activeReleases(doc).length
+
+const COLUMNS: DataTableColumn<DocumentRow>[] = [
+  {
+    id: "document",
+    header: "Documento",
+    accessorFn: ({ doc }) => doc.title,
+    meta: { label: "Documento", alwaysVisible: true, searchValue: ({ doc }) => `${doc.title} ${doc.type}` },
+    cell: ({ row: { original: { doc } } }) => (
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate font-medium">{doc.title}</span>
+        <span className="truncate text-xs text-muted-foreground">
+          {doc.type} · {formatDate(doc.createdAt)}
+        </span>
+      </div>
+    ),
+  },
+  {
+    id: "patient",
+    header: "Paciente",
+    accessorFn: ({ patientName }) => patientName,
+    meta: { label: "Paciente", hideBelow: "md", searchValue: ({ patientName }) => patientName },
+    cell: ({ row: { original } }) => original.patientName,
+  },
+  {
+    id: "classification",
+    header: "Classificação",
+    accessorFn: ({ doc }) => CLASSIFICATION_LABELS[doc.classification],
+    meta: { label: "Classificação", filter: { kind: "multiselect", label: "Classificação", options: CLASSIFICATION_OPTIONS, value: ({ doc }) => doc.classification } },
+    cell: ({ row: { original: { doc } } }) => <ClassificationPill classification={doc.classification} />,
+  },
+  {
+    id: "createdAt",
+    header: "Criado em",
+    accessorFn: ({ doc }) => doc.createdAt,
+    meta: { label: "Criado em", hideBelow: "lg", className: "text-muted-foreground", filter: { kind: "date-range", label: "Criado em", value: ({ doc }) => doc.createdAt } },
+    cell: ({ row: { original: { doc } } }) => formatDate(doc.createdAt),
+  },
+  {
+    id: "releases",
+    header: "Liberações",
+    accessorFn: releasedCount,
+    meta: { label: "Liberações", hideBelow: "sm", className: "text-muted-foreground", filter: { kind: "range", label: "Liberações ativas", value: releasedCount } },
+    cell: ({ row: { original } }) => {
+      const released = releasedCount(original)
+      return released ? `${released} ativa${released === 1 ? "" : "s"}` : "Nenhuma"
+    },
+  },
+  {
+    id: "status",
+    header: "Estado",
+    accessorFn: ({ doc }) => DOCUMENT_STATUS_LABELS[doc.status],
+    meta: { label: "Estado", align: "right", filter: { kind: "status", label: "Estado", options: STATUS_OPTIONS, value: ({ doc }) => doc.status } },
+    cell: ({ row: { original: { doc } } }) => <DocumentStatusPill status={doc.status} />,
+  },
 ]
 
 export function DocumentsView() {
   const { user } = useCurrentUser()
-  const [classification, setClassification] = useState<DocumentClassification | "all">("all")
-  const [status, setStatus] = useState<DocumentStatus | "all">("all")
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState<PatientDocument | "new" | null>(null)
-  const { data, isLoading, error, refetch } = useDocuments({ classification, status })
+  const { data, isLoading, error, refetch, isPlaceholderData } = useDocuments({ classification: "all", status: "all" })
 
   const canCreate = (["clinical", "administrative", "financial"] as const).some((c) => documentAccess(user, c, true).write)
 
@@ -59,65 +102,22 @@ export function DocumentsView() {
       />
 
       <SectionCard bodyClassName="p-0">
-        <Toolbar label="Filtros de documentos">
-          <ToolbarGroup>
-            <HaloToggleGroup items={CLASS_FILTERS} value={classification} onValueChange={(v) => v && setClassification(v as DocumentClassification | "all")} />
-          </ToolbarGroup>
-          <ToolbarGroup align="end">
-            <SimpleSelect ariaLabel="Filtrar por estado" value={status} onChange={(v) => setStatus(v as DocumentStatus | "all")} options={STATUS_OPTIONS} className="w-48" />
-          </ToolbarGroup>
-        </Toolbar>
-
-        {error ? (
-          <ErrorState error={error} onRetry={() => refetch()} className="m-4" />
-        ) : isLoading ? (
-          <ListSkeleton rows={5} className="p-4" />
-        ) : !data?.length ? (
-          <EmptyState icon={<FolderOpen aria-hidden />} title="Nenhum documento" description="Você só vê as classificações que seu perfil pode acessar." className="m-4" />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-5">Documento</TableHead>
-                <TableHead className="hidden md:table-cell">Paciente</TableHead>
-                <TableHead>Classificação</TableHead>
-                <TableHead className="hidden sm:table-cell">Liberações</TableHead>
-                <TableHead className="pr-5 text-right">Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map(({ doc, patientName }) => {
-                const released = activeReleases(doc).length
-                return (
-                  <TableRow
-                    key={doc.id}
-                    tabIndex={0}
-                    className="cursor-pointer"
-                    onClick={() => setDetailId(doc.id)}
-                    onKeyDown={(e) => e.key === "Enter" && setDetailId(doc.id)}
-                  >
-                    <TableCell className="pl-5">
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium">{doc.title}</span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {doc.type} · {formatDate(doc.createdAt)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{patientName}</TableCell>
-                    <TableCell>
-                      <ClassificationPill classification={doc.classification} />
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">{released ? `${released} ativa${released === 1 ? "" : "s"}` : "Nenhuma"}</TableCell>
-                    <TableCell className="pr-5 text-right">
-                      <DocumentStatusPill status={doc.status} />
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable
+          label="Documentos"
+          tableKey="documents"
+          columns={COLUMNS}
+          data={data ?? []}
+          getRowId={({ doc }) => doc.id}
+          defaultState={{ sort: [{ id: "createdAt", desc: true }] }}
+          searchPlaceholder="Título, tipo ou paciente"
+          isLoading={isLoading}
+          isRefreshing={isPlaceholderData}
+          error={error}
+          onRetry={() => refetch()}
+          noun={["documento", "documentos"]}
+          empty={{ icon: <FolderOpen aria-hidden />, title: "Nenhum documento", description: "Você só vê as classificações que seu perfil pode acessar." }}
+          onRowClick={({ doc }) => setDetailId(doc.id)}
+        />
       </SectionCard>
 
       {detailId && (
