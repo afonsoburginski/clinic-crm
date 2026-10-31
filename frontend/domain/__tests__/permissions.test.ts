@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { can, canReadAppointment, CLINICAL_LINK_STATUSES, clinicalPatientIds, isScopedToOwnAgenda, permissionsFor } from "../permissions"
+import { can, canReadAppointment, CLINICAL_LINK_STATUSES, clinicalPatientIds, effectivePermissions, isScopedToOwnAgenda, PERMISSION_LABELS, PERMISSIONS, permissionsFor } from "../permissions"
 import type { Appointment, AppointmentStatus, User } from "../types"
 
 const user = (roles: User["roles"], professionalId?: string): User => ({
@@ -117,5 +117,40 @@ describe("AUTH — matriz papel × permissão (a API aplica; a UI só espelha)",
   it("todo papel acessa o painel; documentos só para quem lida com pacientes ou finanças", () => {
     expect(holders("dashboard:read")).toEqual([...roles])
     expect(holders("documents:read")).toEqual(["admin", "reception", "professional", "finance"])
+  })
+})
+
+describe("USR — permissões efetivas vindas da API", () => {
+  const withPermissions = (roles: User["roles"], permissions: string[]): User => ({ ...user(roles), permissions })
+
+  it("RN-USR-005 · usa as permissões da API em vez do padrão dos papéis", () => {
+    const reception = withPermissions(["reception"], ["dashboard:read"])
+    expect(can(reception, "dashboard:read")).toBe(true)
+    // O padrão da recepção incluiria patients:write; a matriz editada no banco retirou.
+    expect(can(reception, "patients:write")).toBe(false)
+    expect([...effectivePermissions(reception)]).toEqual(["dashboard:read"])
+  })
+
+  it("sessão sem `permissions` cai no padrão dos papéis", () => {
+    expect(can(user(["reception"]), "patients:write")).toBe(true)
+  })
+
+  it("RN-AUTH-002 · quem tem o papel admin não herda permissão clínica nem pelo padrão", () => {
+    expect(can(user(["admin", "professional"]), "clinical:read")).toBe(false)
+    expect(can(user(["admin", "professional"]), "appointments:read-own")).toBe(true)
+  })
+
+  it("RN-USR-001 · administrador gere usuários; os demais papéis não", () => {
+    expect(can(user(["admin"]), "users:manage")).toBe(true)
+    for (const role of ["reception", "professional", "finance", "manager"] as const) {
+      expect(can(user([role]), "users:read")).toBe(false)
+    }
+  })
+
+  it("todo item do catálogo tem rótulo pt-BR e grupo", () => {
+    for (const permission of PERMISSIONS) {
+      expect(PERMISSION_LABELS[permission].label.length).toBeGreaterThan(3)
+      expect(PERMISSION_LABELS[permission].group.length).toBeGreaterThan(3)
+    }
   })
 })

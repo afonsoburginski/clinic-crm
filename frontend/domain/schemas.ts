@@ -116,6 +116,27 @@ export const roomSchema = z.object({
 })
 export type RoomInput = z.infer<typeof roomSchema>
 
+const userBase = {
+  name: z.string().trim().min(2, "Informe o nome").max(120),
+  email: z.email("E-mail inválido"),
+  roles: z.array(z.string()).min(1, "Selecione ao menos um papel"),
+  professionalId: z.string(),
+  active: z.boolean(),
+}
+
+const password = z.string().min(8, "A senha precisa ter ao menos 8 caracteres").max(128, "A senha pode ter no máximo 128 caracteres")
+
+export const userCreateSchema = z.object({ ...userBase, password })
+export type UserCreateInput = z.infer<typeof userCreateSchema>
+
+export const userUpdateSchema = z.object(userBase)
+export type UserUpdateInput = z.infer<typeof userUpdateSchema>
+
+export const passwordResetSchema = z
+  .object({ password, confirm: z.string() })
+  .refine((v) => v.password === v.confirm, { message: "As senhas não conferem", path: ["confirm"] })
+export type PasswordResetInput = z.infer<typeof passwordResetSchema>
+
 export const settingsSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome"),
   legalName: z.string().trim().min(2, "Informe a razão social"),

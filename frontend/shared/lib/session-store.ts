@@ -41,8 +41,8 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: "villiere-session",
-      // Versões anteriores guardavam outra forma de sessão: sem token válido da API volta deslogado.
-      version: 3,
+      // Versões anteriores guardavam outra forma de sessão (a v3 ainda sem `permissions` efetivas da API): volta deslogado.
+      version: 4,
       migrate: () => SIGNED_OUT,
     }
   )

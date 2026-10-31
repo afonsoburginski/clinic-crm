@@ -6,7 +6,36 @@ export interface User {
   email: string
   title: string
   roles: Role[]
+  /** Permissões efetivas resolvidas pela API (matriz de papéis do banco); ausente só em sessões antigas. */
+  permissions?: string[]
   professionalId?: string
+}
+
+/** Usuário da clínica como a tela de gestão o vê (nunca traz senha). */
+export interface UserAccount {
+  id: string
+  name: string
+  email: string
+  active: boolean
+  roles: Role[]
+  professionalId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RoleView {
+  key: Role
+  label: string
+  description: string
+  isSystem: boolean
+  /** Permissões que o papel concede, na matriz salva no banco. */
+  permissions: string[]
+  userCount: number
+}
+
+export interface PermissionGroup {
+  group: string
+  permissions: { key: string; label: string; group: string }[]
 }
 
 export interface Specialty {

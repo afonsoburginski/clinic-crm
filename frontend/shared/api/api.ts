@@ -55,6 +55,8 @@ import { financialApi } from "./financial-api"
 import { blankToUndefined, currentUser, items, parse, seg, uid, whenForbidden } from "./helpers"
 import { http } from "./http-client"
 import { invalidatePatients, loadPatients } from "./patient-directory"
+import { ensureUserNames, knownUserName } from "./user-directory"
+import { rolesApi, usersApi } from "./users-api"
 
 // ---------------------------------------------------------------- helpers
 
@@ -625,11 +627,12 @@ const appointments = {
 const auditLog = {
   async list(filters: { resource?: string; actorId?: string } = {}) {
     const me = useSessionStore.getState().user
+    await ensureUserNames()
     const rows = await items("/audit", {
       resource: filters.resource && filters.resource !== "all" ? fromAuditResource(filters.resource) : undefined,
       actorId: filters.actorId && filters.actorId !== "all" ? filters.actorId : undefined,
     })
-    return rows.map((row, index) => toAuditEntry(row, index, (actorId) => (me?.id === actorId ? me.name : actorId)))
+    return rows.map((row, index) => toAuditEntry(row, index, (actorId) => (me?.id === actorId ? me.name : (knownUserName(actorId) ?? actorId))))
   },
 }
 
@@ -702,6 +705,21 @@ const dashboard = {
   },
 }
 
+/**
+ * Adaptadores cujas respostas trazem só o id de quem agiu: antes de cada chamada a lista de nomes é carregada
+ * (em cache; sem `users:read` não há chamada), para os mappers mostrarem o nome em vez do rótulo neutro.
+ */
+function withUserNames<T extends { [K in keyof T]: (...args: never[]) => Promise<unknown> }>(adapter: T): T {
+  const wrapped: Record<string, unknown> = {}
+  for (const [name, fn] of Object.entries(adapter) as [string, (...args: unknown[]) => Promise<unknown>][]) {
+    wrapped[name] = async (...args: unknown[]) => {
+      await ensureUserNames()
+      return fn(...args)
+    }
+  }
+  return wrapped as T
+}
+
 export const api = {
   auth,
   patients,
@@ -715,11 +733,14 @@ export const api = {
   audit: auditLog,
   dashboard,
   // PRN / AVA / ABA / FIN / DOC — recursos JSON da API (ver clinical-api.ts, financial-api.ts, documents-api.ts)
-  clinicalRecords: clinicalRecordsApi,
-  assessments: assessmentsApi,
-  aba: abaApi,
-  financial: financialApi,
-  documents: documentsApi,
+  clinicalRecords: withUserNames(clinicalRecordsApi),
+  assessments: withUserNames(assessmentsApi),
+  aba: withUserNames(abaApi),
+  financial: withUserNames(financialApi),
+  documents: withUserNames(documentsApi),
+  // Usuários, papéis e permissões (gestão em Configurações)
+  users: usersApi,
+  roles: rolesApi,
 }
 
 export type { AbaPlanView } from "./clinical-api"

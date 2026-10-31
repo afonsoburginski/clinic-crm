@@ -4,6 +4,7 @@ import { useSessionStore } from "@/shared/lib/session-store"
 
 import type { Row } from "./backend-mappers"
 import { SESSION_EXPIRED_MESSAGE, http } from "./http-client"
+import { knownUserName } from "./user-directory"
 
 /** Utilitários comuns dos adaptadores HTTP (`api.ts`, `clinical-api.ts`, `financial-api.ts`, `documents-api.ts`). */
 
@@ -55,11 +56,11 @@ export function currentUser(): User {
 }
 
 /**
- * A API guarda só o id de quem agiu em eventos, pagamentos e interpretações. O nome é conhecido
- * apenas para o usuário da sessão; os demais aparecem com um rótulo neutro.
+ * A API guarda só o id de quem agiu em eventos, pagamentos e interpretações. O nome vem do usuário da sessão
+ * e, para quem tem `users:read`, da lista de usuários (`user-directory.ts`); os demais aparecem com um rótulo neutro.
  */
 export function actorNameOf(actorId: string | undefined) {
   const me = useSessionStore.getState().user
   if (actorId && me?.id === actorId) return me.name
-  return "Usuário da clínica"
+  return knownUserName(actorId) ?? "Usuário da clínica"
 }

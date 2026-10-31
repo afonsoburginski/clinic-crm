@@ -26,6 +26,8 @@ const RESOURCE_LABELS: Record<string, string> = {
   specialty: "Especialidade",
   room: "Sala",
   settings: "Configurações",
+  user: "Usuário",
+  role: "Papel",
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -33,6 +35,8 @@ const ACTION_LABELS: Record<string, string> = {
   update: "Alteração",
   delete: "Remoção",
   status: "Status",
+  status_change: "Situação",
+  password_reset: "Senha redefinida",
 }
 
 export function AuditView() {

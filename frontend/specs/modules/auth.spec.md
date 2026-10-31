@@ -1,6 +1,7 @@
 # AUTH — Acesso, sessão e RBAC
 
 Implementação: `domain/permissions.ts`, `shared/api/api.ts` (login, sessão e saída contra a API), `shared/lib/session-store.ts`, `modules/auth/` · Testes: `domain/__tests__/permissions.test.ts`, `shared/api/__tests__/api-http.test.ts`
+Gestão de usuários, papéis e a matriz editável: `specs/modules/users-roles.spec.md`.
 
 ## Requisitos
 
@@ -12,8 +13,8 @@ Implementação: `domain/permissions.ts`, `shared/api/api.ts` (login, sessão e 
 
 ## Regras de negócio
 
-- **RN-AUTH-001** Permissões são a união dos papéis do usuário.
-- **RN-AUTH-002** Administrador **não** recebe `clinical:read` — gestão administrativa não implica acesso clínico.
+- **RN-AUTH-001** Permissões são a união dos papéis do usuário, conforme a matriz papel × permissão **salva no banco** (editável em Configurações > Papéis e permissões). A API devolve as permissões efetivas em `user.permissions` (login e `GET /auth/session`) e a UI usa essas; o padrão da tabela abaixo é o ponto de partida de cada clínica e só serve de reserva para uma sessão antiga sem o campo.
+- **RN-AUTH-002** Administrador **não** recebe `clinical:read` — gestão administrativa não implica acesso clínico. A matriz não aceita `clinical:*` no papel Administrador e quem tem esse papel nunca fica com permissão clínica efetiva, mesmo que outro papel dele a conceda (a API também nega as rotas clínicas).
 - **RN-AUTH-003** Profissional enxerga apenas a própria agenda e os pacientes que atende. "Atende" = atendimento `confirmado`, `em atendimento` ou `concluído`, ou ser o profissional de referência do paciente (RN-PRN-001). Solicitado, pendente, cancelado e falta não vinculam, e profissional inativo não alcança nenhum paciente.
 - **RN-AUTH-004** Toda checagem de permissão acontece no servidor (a API responde 403); a UI apenas oculta ações e traduz a recusa em mensagem clara.
 - **RN-AUTH-005** Após 5 falhas seguidas de login para o mesmo e-mail, o acesso fica bloqueado por 5 minutos (`domain/login-lockout.ts`). Login bem-sucedido zera o contador.
@@ -31,6 +32,7 @@ Implementação: `domain/permissions.ts`, `shared/api/api.ts` (login, sessão e 
 | professionals:manage | x | | | | x |
 | services/rooms:manage | x | | | | |
 | settings:manage | x | | | | |
+| users:read / users:manage | x | | | | |
 | audit:read | x | | | | x |
 | clinical:read | | | x | | |
 | clinical:write | | | x | | |
@@ -47,3 +49,4 @@ Implementação: `domain/permissions.ts`, `shared/api/api.ts` (login, sessão e 
 - **CA-AUTH-004** Dadas 5 senhas erradas seguidas, quando tento entrar de novo, então recebo a mensagem de bloqueio com o tempo restante.
 - **CA-AUTH-005** Dado um perfil sem `finance:write`, quando a API recusa uma escrita financeira (403), então a tela mostra a mensagem de falta de permissão e nada é alterado.
 - **CA-AUTH-006** Dado um token recusado em `GET /auth/session`, quando o painel recarrega, então a sessão local é encerrada e o usuário volta ao login.
+- **CA-AUTH-007** Dada uma permissão retirada de um papel na matriz, quando o usuário daquele papel volta a consultar a sessão, então a UI deixa de oferecer a ação e a API passa a responder 403.

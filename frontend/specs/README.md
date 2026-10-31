@@ -48,6 +48,7 @@ app/                   rotas finas: compõem templates + componentes de módulo
 | `AGD` | Agenda |
 | `DSH` | Painel |
 | `CFG` | Configurações e auditoria |
+| `USR` | Usuários, papéis e permissões |
 | `PRN` | Prontuário |
 | `AVA` | Avaliações |
 | `ABA` | Plano ABA, sessões e medidas |

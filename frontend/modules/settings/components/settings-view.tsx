@@ -5,9 +5,14 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { ClinicSettings } from "@/domain/types"
 import { settingsSchema } from "@/domain/schemas"
+import { RolesTab } from "@/modules/users/components/roles-tab"
+import { UsersTab } from "@/modules/users/components/users-tab"
+import { useCan } from "@/shared/lib/current-user"
 import { notifyError } from "@/shared/lib/notify"
+import { AccessDenied } from "@/shared/ui/organisms/access-denied"
 import { ErrorState, ListSkeleton } from "@/shared/ui/molecules/feedback-states"
 import { FormField, SwitchField } from "@/shared/ui/molecules/form-field"
 import { PageHeader } from "@/shared/ui/molecules/page-header"
@@ -19,23 +24,60 @@ const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "
 
 type Errors = Partial<Record<string, string>>
 
+type SettingsTab = "clinica" | "usuarios" | "papeis"
+
+/** Cada aba exige a sua permissão: a clínica, `settings:manage`; usuários e papéis, `users:read`. */
 export function SettingsView() {
-  const query = useClinicSettings()
+  const canClinic = useCan("settings:manage")
+  const canUsers = useCan("users:read")
+  const [chosen, setTab] = useState<SettingsTab | null>(null)
+  const allowed: SettingsTab[] = [...(canClinic ? (["clinica"] as const) : []), ...(canUsers ? (["usuarios", "papeis"] as const) : [])]
+  // A permissão chega depois da sessão: a aba escolhida só vale se ainda for permitida, senão abre a primeira.
+  const tab = chosen && allowed.includes(chosen) ? chosen : allowed[0]
+
+  if (!allowed.length) return <AccessDenied />
 
   return (
     <>
       <PageHeader
         title="Configurações"
-        description="Dados da clínica, expediente e regras que a agenda aplica a todos os agendamentos."
+        description="Dados da clínica, expediente e regras da agenda; usuários, papéis e permissões de acesso."
       />
-      {query.isPending ? (
-        <ListSkeleton rows={6} />
-      ) : query.isError ? (
-        <ErrorState error={query.error} onRetry={() => query.refetch()} />
-      ) : (
-        <SettingsForm key={JSON.stringify(query.data)} initial={query.data} />
-      )}
+      <Tabs value={tab} onValueChange={(value) => setTab(value as SettingsTab)} className="gap-4">
+        <TabsList>
+          {canClinic && <TabsTrigger value="clinica">Clínica</TabsTrigger>}
+          {canUsers && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
+          {canUsers && <TabsTrigger value="papeis">Papéis e permissões</TabsTrigger>}
+        </TabsList>
+        {canClinic && (
+          <TabsContent value="clinica">
+            <ClinicSettings />
+          </TabsContent>
+        )}
+        {canUsers && (
+          <TabsContent value="usuarios">
+            <UsersTab />
+          </TabsContent>
+        )}
+        {canUsers && (
+          <TabsContent value="papeis">
+            <RolesTab />
+          </TabsContent>
+        )}
+      </Tabs>
     </>
+  )
+}
+
+function ClinicSettings() {
+  const query = useClinicSettings()
+
+  return query.isPending ? (
+    <ListSkeleton rows={6} />
+  ) : query.isError ? (
+    <ErrorState error={query.error} onRetry={() => query.refetch()} />
+  ) : (
+    <SettingsForm key={JSON.stringify(query.data)} initial={query.data} />
   )
 }
 

@@ -62,7 +62,7 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
     label: "Administração",
     items: [
-      { href: "/configuracoes", label: "Configurações", icon: Settings, anyOf: ["settings:manage"] },
+      { href: "/configuracoes", label: "Configurações", icon: Settings, anyOf: ["settings:manage", "users:read"] },
       { href: "/auditoria", label: "Auditoria", icon: ClipboardList, anyOf: ["audit:read"] },
     ],
   },

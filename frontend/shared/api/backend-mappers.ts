@@ -1,4 +1,4 @@
-import { ROLE_LABELS } from "@/domain/permissions"
+import { PERMISSIONS, ROLE_LABELS } from "@/domain/permissions"
 import type {
   Appointment,
   AppointmentStatus,
@@ -41,12 +41,17 @@ export const either = (row: Row, camel: string, snake: string) => row[camel] ?? 
 
 export function toUser(raw: Row): User {
   const roles = (Array.isArray(raw.roles) ? raw.roles : []).filter((r): r is Role => typeof r === "string" && r in ROLE_LABELS)
+  // Permissões efetivas da API (matriz do banco); chave fora do catálogo da UI é ignorada.
+  const permissions = Array.isArray(raw.permissions)
+    ? raw.permissions.filter((p): p is string => typeof p === "string" && (PERMISSIONS as readonly string[]).includes(p))
+    : undefined
   return {
     id: text(raw.id),
     name: text(raw.name),
     email: text(raw.email),
     title: roles[0] ? ROLE_LABELS[roles[0]] : "",
     roles,
+    permissions,
     professionalId: optional(raw.professionalId),
   }
 }
