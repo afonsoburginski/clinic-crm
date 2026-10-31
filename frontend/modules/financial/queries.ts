@@ -4,37 +4,66 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { FinancialEntryInput, PaymentInput, ReasonInput } from "@/domain/schemas"
 import type { FinancialEntry } from "@/domain/types"
-import { api, type FinancialFilters } from "@/shared/api/api"
+import { api, type FinancialQueryFilters, type FinancialSearchParams } from "@/shared/api/api"
 import { useApiMutation } from "@/shared/lib/use-api-mutation"
 
+import { createFinancialXlsx, downloadBlob } from "./lib/export-xlsx"
+
+/** Tudo sob `["financial"]`: uma mutação financeira invalida relatório, busca e detalhe de uma vez. */
 export const financialKeys = {
   all: ["financial"] as const,
-  list: (filters: FinancialFilters) => ["financial", "list", filters] as const,
   detail: (id: string) => ["financial", "detail", id] as const,
-  summary: (competence: string) => ["financial", "summary", competence] as const,
+  report: (filters: FinancialQueryFilters) => ["financial", "report", filters] as const,
+  search: (filters: FinancialQueryFilters, params: FinancialSearchParams) => ["financial", "search", filters, params] as const,
 }
 
-export function useFinancialEntries(filters: FinancialFilters) {
+/** Indicadores e gráficos do filtro atual. */
+export function useFinancialReport(filters: FinancialQueryFilters) {
   return useQuery({
-    queryKey: financialKeys.list(filters),
-    queryFn: () => api.financial.list(filters),
+    queryKey: financialKeys.report(filters),
+    queryFn: () => api.financial.report(filters),
     placeholderData: keepPreviousData,
     retry: false,
   })
+}
+
+/** Uma página da tabela, paginada e ordenada no servidor com o mesmo filtro. */
+export function useFinancialSearch(filters: FinancialQueryFilters, params: FinancialSearchParams) {
+  return useQuery({
+    queryKey: financialKeys.search(filters, params),
+    queryFn: () => api.financial.search(filters, params),
+    placeholderData: keepPreviousData,
+    retry: false,
+  })
+}
+
+/**
+ * RF-FIN-008: exporta o filtro atual (todas as páginas) para XLSX. O relatório é buscado de novo para a aba
+ * Resumo bater com as linhas; o `exceljs` só é carregado aqui, no clique. Auditoria e painel são invalidados.
+ */
+export function useExportFinancial() {
+  return useApiMutation<FinancialQueryFilters, { fileName: string; total: number }>(
+    async (filters) => {
+      const [exported, report] = await Promise.all([api.financial.export(filters), api.financial.report(filters)])
+      const { blob, fileName } = await createFinancialXlsx({
+        rows: exported.rows,
+        patientNames: exported.patientNames,
+        filters,
+        report,
+        generatedAt: new Date(),
+      })
+      downloadBlob(blob, fileName)
+      return { fileName, total: exported.total }
+    },
+    {
+      invalidate: [],
+      success: ({ total }) => (total === 1 ? "Planilha exportada com 1 lançamento." : `Planilha exportada com ${total} lançamentos.`),
+    }
+  )
 }
 
 export function useFinancialEntry(id: string) {
   return useQuery({ queryKey: financialKeys.detail(id), queryFn: () => api.financial.get(id), retry: false })
-}
-
-export function useFinancialSummary(competence: string) {
-  return useQuery({
-    queryKey: financialKeys.summary(competence),
-    queryFn: () => api.financial.summary(competence),
-    placeholderData: keepPreviousData,
-    enabled: /^\d{4}-\d{2}$/.test(competence),
-    retry: false,
-  })
 }
 
 export function useSaveEntry(id?: string) {

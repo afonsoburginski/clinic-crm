@@ -21,7 +21,7 @@ Toda lista de registros do app usa **um** componente, `DataTable` (`@tanstack/re
 
 - `label` (menu de colunas e chips), `align`, `hideBelow` (`sm|md|lg|xl`, no lugar de `hidden md:table-cell`), `alwaysVisible`, `className`;
 - `filter`: filtro declarativo (abaixo); `searchValue`: texto da coluna na busca global (sem ele vale o valor do acessor quando for texto/número);
-- `exportValue`: valor da coluna na exportação (usado pelo XLSX do Financeiro).
+- `exportValue`: valor da coluna para exportar listas em modo cliente (`onRowsChange`). O XLSX do Financeiro não usa este campo: ele sai das linhas da API já filtradas (`GET /financial/export`, RN-FIN-015).
 
 Coluna de ações da linha (editar, redefinir…): `actionsColumn(render)` (`columns.tsx`). **`renderRowActions`, `rowMenu` e `renderHeaderMenu` são pontos de extensão reservados ao menu de contexto** (botão "⋯", clique direito, menu do cabeçalho) e ainda não são usados pelas telas.
 
@@ -43,7 +43,7 @@ Filtros se somam (E). As contagens de `multiselect`/`status`/`select` são facet
 `DataTableState = { search, filters, sort, pageIndex, pageSize, hiddenColumns, columnOrder }`. `defaultState` define o padrão da tela (ex.: pacientes abrem com `status: ["active"]`).
 
 - **`mode="client"` (padrão)**: busca, filtro, ordenação e paginação em memória; `onRowsChange` entrega todas as linhas filtradas e ordenadas (todas as páginas), base da exportação.
-- **`mode="server"`**: `manualPagination/manualSorting/manualFiltering`; o pai busca e passa `data` (a página), `total`, `state` e `onStateChange`.
+- **`mode="server"`**: `manualPagination/manualSorting/manualFiltering`; o pai busca e passa `data` (a página), `total`, `state` e `onStateChange`. Usado pelo Financeiro (`/financeiro`): o `state` controlado também alimenta indicadores, gráficos e exportação, e os `filter` das colunas só declaram os controles (a API filtra, ordena e pagina).
 - Estado próprio por padrão; passe `state`/`onStateChange` para controlá-lo. A página é ajustada ao intervalo válido depois de filtrar ou trocar o tamanho.
 
 ## Preferências e visões salvas (PostgreSQL)

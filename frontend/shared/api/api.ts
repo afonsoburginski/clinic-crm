@@ -748,7 +748,16 @@ export const api = {
 
 export type { AbaPlanView } from "./clinical-api"
 export type { DocumentRow } from "./documents-api"
-export type { FinancialFilters, FinancialRow } from "./financial-api"
+export type {
+  FinancialExportResult,
+  FinancialFilters,
+  FinancialListRow,
+  FinancialPage,
+  FinancialQueryFilters,
+  FinancialReport,
+  FinancialRow,
+  FinancialSearchParams,
+} from "./financial-api"
 
 export type ClinicApi = typeof api
 export type DashboardSummary = Awaited<ReturnType<typeof dashboard.summary>>

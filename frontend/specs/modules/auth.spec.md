@@ -39,6 +39,7 @@ Gestão de usuários, papéis e a matriz editável: `specs/modules/users-roles.s
 | assessments:interpret | | | x | | |
 | finance:read | x | | | x | |
 | finance:write | | | | x | |
+| finance:export (XLSX do financeiro) | x | | | x | |
 | documents:read | x | x | x | x | |
 
 ## Critérios de aceite

@@ -39,6 +39,13 @@ describe("http-client — requisição", () => {
     expect(init.body).toBeUndefined()
   })
 
+  it("lista vira parâmetro repetido e itens vazios são descartados", async () => {
+    reply(200, { items: [] })
+    await http.get("/financial/report", { query: { status: ["open", "", "paid"], category: [], method: ["pix"], from: "2030-01-01" } })
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/financial/report?status=open&status=paid&method=pix&from=2030-01-01")
+  })
+
   it("serializa o corpo como JSON", async () => {
     reply(200, { id: "p1" })
     await http.post("/patients", { body: { fullName: "Ana Souza" } })

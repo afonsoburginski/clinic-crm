@@ -43,6 +43,26 @@ describe("AUTH — permissões", () => {
   })
 })
 
+describe("FIN — exportação (RN-FIN-014)", () => {
+  it("finance:export é padrão de Administrador e Financeiro; os demais perfis não exportam", () => {
+    expect(can(user(["admin"]), "finance:export")).toBe(true)
+    expect(can(user(["finance"]), "finance:export")).toBe(true)
+    for (const role of ["reception", "professional", "manager"] as const) expect(can(user([role]), "finance:export")).toBe(false)
+  })
+
+  it("a permissão está no catálogo com rótulo pt-BR, no grupo Financeiro", () => {
+    expect(PERMISSIONS).toContain("finance:export")
+    expect(PERMISSION_LABELS["finance:export"]).toEqual({ label: "Exportar o financeiro (XLSX)", group: "Financeiro" })
+  })
+
+  it("a matriz editada pela clínica manda: sem finance:export na sessão, nem o Administrador exporta (CA-FIN-007)", () => {
+    const readOnly = { ...user(["finance"]), permissions: ["finance:read", "finance:write"] }
+    expect(can(readOnly, "finance:read")).toBe(true)
+    expect(can(readOnly, "finance:export")).toBe(false)
+    expect(can({ ...user(["admin"]), permissions: ["finance:read"] }, "finance:export")).toBe(false)
+  })
+})
+
 describe("PRN — vínculo clínico (RN-PRN-001)", () => {
   const prof = { id: "p1", active: true }
   const appt = (status: AppointmentStatus, over: Partial<Pick<Appointment, "kind" | "patientId" | "professionalId">> = {}) => ({

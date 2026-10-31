@@ -13,7 +13,7 @@ declare module "@tanstack/react-table" {
     align?: "left" | "right" | "center"
     /** Filtro declarativo desta coluna: o tipo escolhe o controle da toolbar e o predicado. */
     filter?: FilterConfig<TData>
-    /** Valor para a exportação (item Financeiro/XLSX): número, texto, data ISO ou `null`. */
+    /** Valor para exportar listas em modo cliente: número, texto, data ISO ou `null` (o XLSX do Financeiro vem da API, não daqui). */
     exportValue?: (row: TData) => string | number | boolean | Date | null | undefined
     /** Trecho de texto desta coluna para a busca global (padrão: o valor do acessor quando for texto/número). */
     searchValue?: (row: TData) => string

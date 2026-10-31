@@ -22,6 +22,19 @@ import type { FinancialEntry, FinancialEntryStatus, FinancialKind, FinancialPaym
 
 import type { Row } from "./backend-mappers"
 import { toFinancialEntry, toFinancialPayment, toFinancialPayments } from "./financial-mappers"
+import {
+  reportQueryOf,
+  searchQueryOf,
+  toFinancialExport,
+  toFinancialPage,
+  toFinancialReport,
+  type FinancialExportResult,
+  type FinancialListRow,
+  type FinancialPage,
+  type FinancialQueryFilters,
+  type FinancialReport,
+  type FinancialSearchParams,
+} from "./financial-report-mappers"
 import { items, now, parse, seg, whenForbidden } from "./helpers"
 import { http } from "./http-client"
 import { loadPatients } from "./patient-directory"
@@ -100,6 +113,32 @@ export const financialApi = {
       .sort((a, b) => a.entry.dueDate.localeCompare(b.entry.dueDate) || a.entry.code.localeCompare(b.entry.code))
   },
 
+  /** Indicadores, séries e distribuições do filtro atual (`GET /financial/report`). */
+  async report(filters: FinancialQueryFilters): Promise<FinancialReport> {
+    return toFinancialReport(await http.get<Row>("/financial/report", { query: reportQueryOf(filters) }))
+  },
+
+  /** Uma página dos lançamentos filtrados, paginada e ordenada no servidor (`GET /financial/entries/search`). */
+  async search(filters: FinancialQueryFilters, params: FinancialSearchParams): Promise<FinancialPage> {
+    return toFinancialPage(await http.get<Row>("/financial/entries/search", { query: searchQueryOf(filters, params) }))
+  },
+
+  /**
+   * Todos os lançamentos do filtro atual, sem paginação, para a planilha (`GET /financial/export`, exige
+   * `finance:export`). A API não conhece o nome do paciente: ele é juntado aqui quando o perfil lê pacientes.
+   */
+  async export(filters: FinancialQueryFilters): Promise<FinancialExportResult & { patientNames: Record<string, string> }> {
+    const result = toFinancialExport(
+      await http.get<Row>("/financial/export", {
+        query: reportQueryOf(filters),
+        errors: { 403: "Seu perfil não pode exportar o financeiro." },
+      })
+    )
+    const patients = result.rows.some(({ entry }) => entry.patientId) ? await loadPatients().catch(whenForbidden(null)) : null
+    const patientNames = Object.fromEntries((patients ?? []).map((p) => [p.id, p.fullName]))
+    return { ...result, patientNames }
+  },
+
   async get(id: string) {
     const current = await fetchOne(id)
     // A API guarda os pagamentos em ordem de registro; o mais recente aparece primeiro.
@@ -174,3 +213,5 @@ export const financialApi = {
 }
 
 export type FinancialRow = Awaited<ReturnType<typeof financialApi.list>>[number]
+
+export type { FinancialExportResult, FinancialListRow, FinancialPage, FinancialQueryFilters, FinancialReport, FinancialSearchParams }

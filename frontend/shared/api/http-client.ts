@@ -18,7 +18,8 @@ export class ApiError extends Error {
   }
 }
 
-type QueryValue = string | number | boolean | null | undefined
+/** Lista vira parâmetro repetido (`status=open&status=paid`); itens vazios são descartados. */
+type QueryValue = string | number | boolean | null | undefined | readonly string[]
 
 export interface RequestOptions {
   query?: Record<string, QueryValue>
@@ -50,7 +51,9 @@ const isInternalToken = (message: string) => /^[a-z_]+$/.test(message)
 function buildUrl(path: string, query: RequestOptions["query"]) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query ?? {})) {
-    if (value !== undefined && value !== null && value !== "") params.set(key, String(value))
+    if (Array.isArray(value)) {
+      for (const item of value) if (item !== "") params.append(key, item)
+    } else if (value !== undefined && value !== null && value !== "") params.set(key, String(value))
   }
   const qs = params.toString()
   return `${API_PREFIX}${path}${qs ? `?${qs}` : ""}`
