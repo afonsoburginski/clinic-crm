@@ -53,12 +53,12 @@ describe("DOC — acesso por classificação (RN-DOC-001)", () => {
     expect(read(fin, "clinical")).toBe(false)
   })
 
-  it("administrador não acessa documento clínico e só lê o financeiro", () => {
+  it("administrador acessa e escreve em qualquer classificação, de qualquer paciente", () => {
     const adm = user(["admin"])
-    expect(read(adm, "clinical")).toBe(false)
-    expect(read(adm, "financial")).toBe(true)
-    expect(write(adm, "financial")).toBe(false)
-    expect(write(adm, "administrative")).toBe(true)
+    for (const classification of ["clinical", "financial", "administrative"] as const) {
+      expect(read(adm, classification, false)).toBe(true)
+      expect(write(adm, classification, false)).toBe(true)
+    }
   })
 
   it("profissional acessa clínico só de paciente próprio", () => {

@@ -1,4 +1,5 @@
 import type { Actor } from "@/application/ports/patient-access"
+import { hasAdminRole } from "@/domain/permissions"
 
 /** Helpers for reading the untyped JSON payloads kept in `api_resources` (records, assessments, ABA, financial, documents). */
 
@@ -33,15 +34,21 @@ export function withCreationDefaults(payload: Record<string, unknown>, actorId: 
   return { ...payload, createdBy: payload.createdBy ?? actorId, status: "draft" }
 }
 
-/** A professional without a professional link has no patients: it must never fall back to an unscoped query. */
+/** A professional without a professional link has no patients: it must never fall back to an unscoped query. The administrator is never scoped. */
 export function assertLinkedProfessional(actor: Actor): void {
+  if (hasAdminRole(actor.roles)) return
   if (actor.roles.includes("professional") && !actor.professionalId) throw new Error("forbidden")
 }
 
-/** List scope: professionals only see their linked patients; other roles are unscoped. */
+/** The professional link that narrows a query; the administrator has none, so its queries are unscoped. */
+export function linkedProfessionalOf(actor: Actor): string | undefined {
+  return hasAdminRole(actor.roles) ? undefined : actor.professionalId
+}
+
+/** List scope: professionals only see their linked patients; other roles (and the administrator) are unscoped. */
 export function professionalScopeOf(actor: Actor): string | undefined {
   assertLinkedProfessional(actor)
-  return actor.roles.includes("professional") ? actor.professionalId : undefined
+  return actor.roles.includes("professional") ? linkedProfessionalOf(actor) : undefined
 }
 
 /** State-changing actions never run for an anonymous or the internal `system` caller. */

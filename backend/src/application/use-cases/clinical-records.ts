@@ -20,12 +20,14 @@ import {
   assertLinkedProfessional,
   fieldsOf,
   isRecord,
+  linkedProfessionalOf,
   omit,
   patientIdOf,
   professionalScopeOf,
   textLength,
   withCreationDefaults,
 } from "@/application/use-cases/clinical-payload"
+import { hasAdminRole } from "@/domain/permissions"
 
 const DRAFT = "draft"
 const FINALIZED = "finalized"
@@ -123,7 +125,7 @@ export function createClinicalRecordQueries(repository: ClinicalRecordQueryRepos
     },
     async listClinicalPatients(query: ListClinicalPatientsQuery): Promise<ClinicalRecord[]> {
       assertLinkedProfessional(query.actor)
-      return repository.find({ clinicId: query.clinicId, filters: {}, professionalId: query.actor.professionalId })
+      return repository.find({ clinicId: query.clinicId, filters: {}, professionalId: linkedProfessionalOf(query.actor) })
     },
     async getRecord(query: GetClinicalRecordQuery): Promise<ClinicalRecord> {
       const record = await load(repository, query.clinicId, query.id)
@@ -134,7 +136,7 @@ export function createClinicalRecordQueries(repository: ClinicalRecordQueryRepos
       const record = await load(repository, query.clinicId, query.id)
       await access.assertAccess(patientIdOf(record), query.actor)
       assertLinkedProfessional(query.actor)
-      const all = await repository.find({ clinicId: query.clinicId, filters: {}, professionalId: query.actor.professionalId })
+      const all = await repository.find({ clinicId: query.clinicId, filters: {}, professionalId: linkedProfessionalOf(query.actor) })
       return versionChain(record, all)
     },
   }
@@ -179,12 +181,12 @@ export function createClinicalRecordCommands(repository: ClinicalRecordRepositor
       if (current.status !== DRAFT) throw new Error("conflict")
       return patchDraft(command.clinicId, command.actor.userId, command.id, patch)
     },
-    /** Only the author finalizes a draft. */
+    /** Only the author (or the administrator) finalizes a draft. */
     async finalizeRecord(command: FinalizeClinicalRecordCommand): Promise<ClinicalRecord> {
       assertAuthenticated(command.actor)
       const current = await load(repository, command.clinicId, command.id)
       await access.assertAccess(patientIdOf(current), command.actor)
-      if (current.createdBy !== command.actor.userId) throw new Error("forbidden")
+      if (current.createdBy !== command.actor.userId && !hasAdminRole(command.actor.roles)) throw new Error("forbidden")
       if (!finalizable(current)) throw new Error("validation")
       const finalized = { ...current, status: FINALIZED }
       validRecord(finalized)

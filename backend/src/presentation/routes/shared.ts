@@ -1,4 +1,5 @@
 import { DomainError } from "@/application/errors";
+import { hasAdminRole } from "@/domain/permissions";
 import { query } from "@/infrastructure/database";
 
 export type ApiEnv = {
@@ -11,7 +12,7 @@ export type ApiEnv = {
 };
 export const clinic = () => Bun.env.CLINIC_ID;
 export async function assertProfessionalPatientAccess(patientId: string | undefined, user: any) {
-  if (!user.roles.includes("professional")) return;
+  if (hasAdminRole(user.roles) || !user.roles.includes("professional")) return;
   if (!user.professionalId || !patientId) throw new Error("forbidden");
   const r = await query(
     "SELECT 1 FROM professionals pr JOIN patients p ON p.clinic_id=pr.clinic_id WHERE" +

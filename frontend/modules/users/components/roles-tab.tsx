@@ -147,8 +147,8 @@ function RoleMatrixEditor({ roles, groups }: { roles: RoleView[]; groups: Permis
         </div>
         <p className="border-t px-5 py-3 text-xs leading-relaxed text-muted-foreground">
           <Lock className="mr-1 inline size-3 align-[-1px]" aria-hidden />
-          Regras travadas: o Administrador nunca tem acesso clínico (gestão administrativa não implica acesso a prontuários) e
-          sempre mantém o acesso a usuários e configurações. Mudanças valem para quem já está logado na próxima leitura da sessão.
+          O Administrador tem acesso total e não pode ser editado: a coluna dele fica sempre marcada. Mudanças nos demais
+          papéis valem para quem já está logado na próxima leitura da sessão.
         </p>
       </SectionCard>
 

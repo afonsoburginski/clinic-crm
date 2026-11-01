@@ -140,7 +140,7 @@ describe("clinical records router", () => {
   })
 
   test("answers 403 when someone else tries to finalize", async () => {
-    const { repository, send } = setup()
+    const { repository, send } = setup({ roles: ["professional"], professionalId: "pr1" })
     repository.records = [{ ...draft, createdBy: "user-2" }]
     const response = await send("POST", "/api/v1/clinical-records/r1/finalize", {})
     expect(response.status).toBe(403)

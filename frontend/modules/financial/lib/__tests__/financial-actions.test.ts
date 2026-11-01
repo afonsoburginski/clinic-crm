@@ -26,7 +26,7 @@ const row = (status: FinancialEntryStatus, paidCents = 0, kind: FinancialEntry["
 })
 const handlers = () => ({ onView: vi.fn(), onEdit: vi.fn(), onDuplicate: vi.fn(), onPay: vi.fn(), onCancel: vi.fn() })
 const finance = userWith(["finance"])
-const admin = userWith(["admin"])
+const reception = userWith(["reception"])
 
 describe("FIN — ações do lançamento (menu ⋯ e clique direito)", () => {
   it("lançamento aberto oferece ver, editar, duplicar, pagar e cancelar; cancelar é destrutivo e pede motivo", () => {
@@ -55,8 +55,8 @@ describe("FIN — ações do lançamento (menu ⋯ e clique direito)", () => {
     expect(itemFor(financialActions(row("overdue", 0, "expense"), handlers()), finance, "pay")?.label).toBe("Registrar pagamento")
   })
 
-  it("perfil sem finance:write (administrador, só leitura) não vê nenhuma ação de escrita", () => {
-    const ids = visibleIds(financialActions(row("open"), handlers()), admin)
+  it("perfil sem finance:write (recepção) não vê nenhuma ação de escrita", () => {
+    const ids = visibleIds(financialActions(row("open"), handlers()), reception)
     expect(ids).toEqual(["view", "copy-code", "copy-amount", "copy-id"])
   })
 

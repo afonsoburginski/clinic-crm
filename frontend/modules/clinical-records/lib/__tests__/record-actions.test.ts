@@ -55,7 +55,7 @@ describe("PRN — ações do registro", () => {
     const notAuthor = recordActions(record("draft"), handlers(false))
     expect(itemFor(notAuthor, professional, "edit")).toMatchObject({ disabled: true, disabledReason: "Só o autor do registro pode fazer isso." })
     expect(itemFor(notAuthor, professional, "finalize")?.disabled).toBe(true)
-    expect(visibleIds(recordActions(record("draft"), handlers()), userWith(["admin"]))).toEqual(["view", "copy-id"])
+    expect(visibleIds(recordActions(record("draft"), handlers()), userWith(["finance"]))).toEqual(["view", "copy-id"])
   })
 
   it("retificar leva o motivo digitado", async () => {

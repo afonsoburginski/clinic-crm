@@ -98,7 +98,7 @@ describe("login", () => {
     const { user, accessToken } = await auth.login(" Ana@Clinica.com ", "senha-forte")
     expect(user.roles).toEqual(["admin", "professional"])
     expect(user.permissions).toContain("users:manage")
-    expect(user.permissions).not.toContain("clinical:read")
+    expect(user.permissions).toContain("clinical:read")
     expect(hasPermission(user, "users:manage")).toBe(true)
     expect(accessToken.split(".")).toHaveLength(2)
   })

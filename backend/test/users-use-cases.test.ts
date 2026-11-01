@@ -186,7 +186,7 @@ describe("roles and permissions", () => {
     const admin = (await useCases.queries.listRoles({ clinicId: CLINIC })).find((role) => role.key === "admin")!
     expect(admin.userCount).toBe(1)
     expect(admin.permissions).toContain("users:manage")
-    expect(admin.permissions).not.toContain("clinical:read")
+    expect(admin.permissions).toContain("clinical:read")
   })
 
   test("groups the catalog for the matrix", async () => {

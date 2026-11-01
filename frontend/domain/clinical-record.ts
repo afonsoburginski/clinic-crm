@@ -1,5 +1,5 @@
 import { ForbiddenError, ValidationError } from "./errors"
-import { can } from "./permissions"
+import { can, isAdmin } from "./permissions"
 import type {
   ClinicalRecord,
   ClinicalRecordAction,
@@ -24,13 +24,13 @@ export const RECORD_STATUS_LABELS: Record<ClinicalRecordStatus, string> = {
 export const MIN_CONTENT_TO_FINALIZE = 20
 export const MIN_RECTIFICATION_REASON = 10
 
-/** RN-PRN-001/002: permissão clínica somada ao vínculo com o paciente. */
+/** RN-PRN-001/002: permissão clínica somada ao vínculo com o paciente (o administrador não precisa de vínculo). */
 export function canReadClinical(user: User | null | undefined, patientIsOwn: boolean) {
-  return can(user, "clinical:read") && patientIsOwn
+  return can(user, "clinical:read") && (patientIsOwn || isAdmin(user))
 }
 
 export function canWriteClinical(user: User | null | undefined, patientIsOwn: boolean) {
-  return can(user, "clinical:write") && patientIsOwn
+  return can(user, "clinical:write") && (patientIsOwn || isAdmin(user))
 }
 
 function event(user: User, action: ClinicalRecordAction, at: string): ClinicalRecordEvent {
@@ -39,7 +39,7 @@ function event(user: User, action: ClinicalRecordAction, at: string): ClinicalRe
 
 /** RN-PRN-003 */
 function assertAuthor(user: User, record: ClinicalRecord) {
-  if (record.authorId !== user.id) throw new ForbiddenError("Somente o autor do registro pode alterá-lo ou retificá-lo.")
+  if (record.authorId !== user.id && !isAdmin(user)) throw new ForbiddenError("Somente o autor do registro pode alterá-lo ou retificá-lo.")
 }
 
 export interface DraftInput {

@@ -94,7 +94,7 @@ describe("clinical record queries", () => {
 
   test("lists clinical patients for the actor's professional link", async () => {
     const { repository, queries } = setup()
-    await queries.listClinicalPatients({ clinicId, actor: { ...admin, professionalId: "pr9" } })
+    await queries.listClinicalPatients({ clinicId, actor: { ...author, professionalId: "pr9" } })
     expect(repository.found[0]).toEqual({ clinicId, filters: {}, professionalId: "pr9" })
   })
 
@@ -322,7 +322,7 @@ describe("clinical record commands", () => {
 
     test("only the author can finalize", async () => {
       const { repository, commands } = setup(draft)
-      await expect(commands.finalizeRecord({ clinicId, actor: { ...admin, userId: "someone-else" }, id: "r1" }))
+      await expect(commands.finalizeRecord({ clinicId, actor: { ...author, userId: "someone-else" }, id: "r1" }))
         .rejects.toThrow("forbidden")
       expect(repository.patched).toEqual([])
     })

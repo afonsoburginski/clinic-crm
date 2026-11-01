@@ -9,17 +9,11 @@ const matrix = matrixOf([
 ])
 
 describe("USR — matriz de papéis e permissões", () => {
-  it("RN-USR-007 · administrador não recebe permissão clínica e a célula fica travada desmarcada", () => {
-    expect(cellLock("admin", "clinical:read")).toMatchObject({ checked: false })
-    expect(cellLock("admin", "clinical:write")).toMatchObject({ checked: false })
-    expect(cellLock("professional", "clinical:read")).toBeNull()
-  })
-
-  it("RN-USR-008 · administrador mantém usuários e configurações (célula travada marcada)", () => {
-    for (const permission of ["users:read", "users:manage", "settings:manage"]) {
-      expect(cellLock("admin", permission)).toMatchObject({ checked: true })
+  it("RN-USR-007 · a coluna do administrador é sempre marcada e travada, com a dica de acesso total", () => {
+    for (const permission of PERMISSIONS) {
+      expect(cellLock("admin", permission)).toEqual({ checked: true, reason: "O administrador tem acesso total." })
     }
-    expect(cellLock("admin", "dashboard:read")).toBeNull()
+    expect(cellLock("professional", "clinical:read")).toBeNull()
     expect(cellLock("reception", "users:manage")).toBeNull()
   })
 

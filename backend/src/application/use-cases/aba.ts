@@ -23,6 +23,7 @@ import {
   assertAuthenticated,
   fieldsOf,
   isRecord,
+  linkedProfessionalOf,
   listOf,
   patientIdOf,
   professionalScopeOf,
@@ -106,7 +107,7 @@ export function createAbaQueries(repository: AbaQueryRepository, access: Patient
         clinicId: query.clinicId,
         kind: SESSION,
         filters: { patientId: patientIdOf(plan) },
-        professionalId: query.actor.professionalId,
+        professionalId: linkedProfessionalOf(query.actor),
       })
       return goalsWithProgress(listOf(plan.goals), sessions, plan.id)
     },

@@ -17,7 +17,7 @@ Dados na API (`/clinical-records`, `/clinical/patients`, `…/finalize`, `…/re
 ## Regras
 
 - **RN-PRN-001** Ler exige `clinical:read` e escrever exige `clinical:write`, ambos somados ao vínculo com o paciente. O vínculo vem de um atendimento `confirmado`, `em atendimento` ou `concluído` com o profissional, ou de ser o profissional de referência do paciente — e **o profissional precisa estar ativo**. Atendimento solicitado, pendente, cancelado ou falta não vincula; bloqueio de agenda também não. Quem não tem vínculo recebe acesso negado (a lista de pacientes vem restrita aos vinculados).
-- **RN-PRN-002** Recepção, financeiro, administração e gestão (sem papel profissional) nunca leem nem escrevem prontuário (RN-AUTH-002).
+- **RN-PRN-002** Recepção, financeiro e gestão (sem papel profissional) nunca leem nem escrevem prontuário. O administrador tem acesso total (RN-AUTH-002 revogada): lê e escreve prontuário de qualquer paciente, sem vínculo, e finaliza, altera ou retifica registro de outro autor.
 - **RN-PRN-003** Só o autor edita o rascunho e retifica. Autor e data de criação nunca mudam.
 - **RN-PRN-004** Finalizar exige título e conteúdo com ao menos 20 caracteres.
 - **RN-PRN-005** Registro `finalizado` ou `retificado` é imutável: nenhum campo de conteúdo muda depois.

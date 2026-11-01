@@ -41,7 +41,7 @@ Dados na API (`/financial/entries`, `/financial/payments/:id/reverse`), guardado
 - **CA-FIN-001** Dado lançamento de R$ 100, quando pago R$ 40 e depois R$ 60, então fica `pago`; um terceiro pagamento é recusado.
 - **CA-FIN-002** Dado lançamento de R$ 100 com R$ 40 pagos, quando se tenta pagar R$ 70, então excede o saldo e é recusado.
 - **CA-FIN-003** Dado lançamento com pagamento ativo, quando se tenta cancelar, então é recusado até estornar o pagamento.
-- **CA-FIN-004** Dado um perfil Administrador, quando tenta lançar, então recebe acesso negado (só leitura).
+- **CA-FIN-004** Dado um perfil sem `finance:write` (por exemplo Recepção), quando tenta lançar, então recebe acesso negado; o Administrador (acesso total) lança normalmente.
 - **CA-FIN-005** Dado o valor 0,004 ou 10,005, quando se tenta criar, editar ou pagar, então é recusado e nada é gravado; 19,99 vira 1999 centavos.
 - **CA-FIN-006** Dado um lançamento alterado de R$ 100 para R$ 150,50, quando consulto a auditoria, então vejo que `amountCents` mudou, sem nenhum dos dois valores.
 - **CA-FIN-007** Dado um perfil com `finance:read` e sem `finance:export`, quando abro `/financeiro`, então vejo indicadores, gráficos e tabela, mas não o botão "Exportar XLSX"; mesmo chamando a API direto, a exportação é recusada com 403.

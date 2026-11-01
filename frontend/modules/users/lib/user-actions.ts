@@ -44,7 +44,7 @@ export function userActions(account: UserAccount, handlers: UserActionHandlers):
 export function roleActions(role: Pick<RoleView, "key" | "label">, handlers: { onViewPermissions: () => void; onEditPermissions: () => void }): EntityAction[] {
   return [
     { id: "view", label: "Ver permissões", icon: ShieldCheck, onSelect: handlers.onViewPermissions },
-    { id: "edit", label: "Editar permissões", icon: PencilLine, permission: "users:manage", onSelect: handlers.onEditPermissions },
+    { id: "edit", label: "Editar permissões", icon: PencilLine, permission: "users:manage", hidden: role.key === "admin", onSelect: handlers.onEditPermissions },
     { id: "copy-key", label: "Copiar chave do papel", kind: "copy", text: role.key, group: "clipboard" },
   ]
 }

@@ -5,6 +5,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { RECORD_KIND_LABELS, RECORD_STATUS_LABELS } from "@/domain/clinical-record"
+import { isAdmin } from "@/domain/permissions"
 import type { ClinicalRecord, ClinicalRecordKind, ClinicalRecordStatus } from "@/domain/types"
 import { useCan, useCurrentUser } from "@/shared/lib/current-user"
 import { formatAge, formatDateTime } from "@/shared/lib/format"
@@ -125,7 +126,7 @@ export function PatientChartView({ patientId }: { patientId: string }) {
           rowLabel={(r) => r.title}
           rowActions={(r) =>
             recordActions(r, {
-              isAuthor: user?.id === r.authorId,
+              isAuthor: user?.id === r.authorId || isAdmin(user),
               onView: () => setDetailId(r.id),
               onEdit: () => editor.openEdit(r),
               onFinalize: () => finalize.mutate(r.id),

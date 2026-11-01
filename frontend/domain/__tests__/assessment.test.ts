@@ -97,9 +97,10 @@ describe("AVA — etapas (RN-AVA-002)", () => {
 })
 
 describe("AVA — interpretação só por perfil clínico (RN-AVA-003)", () => {
-  it("apenas o profissional tem assessments:interpret", () => {
+  it("apenas o profissional e o administrador (acesso total) têm assessments:interpret", () => {
     expect(canInterpret(responsible)).toBe(true)
-    for (const role of ["reception", "finance", "admin", "manager"] as Role[]) {
+    expect(permissionsFor(["admin"]).has("assessments:interpret")).toBe(true)
+    for (const role of ["reception", "finance", "manager"] as Role[]) {
       expect(permissionsFor([role]).has("assessments:interpret")).toBe(false)
     }
   })

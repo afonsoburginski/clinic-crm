@@ -49,7 +49,7 @@ describe("AVA — ações da avaliação", () => {
   it("avaliação concluída ou cancelada só vê e copia; sem clinical:write também", () => {
     expect(visibleIds(assessmentActions(assessment("completed"), handlers()), professional)).toEqual(["view", "copy-id"])
     expect(visibleIds(assessmentActions(assessment("cancelled"), handlers()), professional)).toEqual(["view", "copy-id"])
-    expect(visibleIds(assessmentActions(assessment("in_progress"), handlers()), userWith(["admin"]))).toEqual(["view", "copy-id"])
+    expect(visibleIds(assessmentActions(assessment("in_progress"), handlers()), userWith(["finance"]))).toEqual(["view", "copy-id"])
   })
 
   it("cancelar leva o motivo digitado ao callback", async () => {

@@ -14,7 +14,7 @@ Dados na API (`/documents`, `/documents/:id/status`, `/documents/:id/releases`),
 
 ## Regras
 
-- **RN-DOC-001** Permissão por classificação. Clínico: `clinical:read`/`clinical:write` com vínculo ao paciente. Administrativo: leitura por `patients:read` (ou `patients:read-own` no próprio paciente), escrita por `patients:write`. Financeiro: leitura `finance:read`, escrita `finance:write`. Listar exige `documents:read`.
+- **RN-DOC-001** Permissão por classificação. Clínico: `clinical:read`/`clinical:write` com vínculo ao paciente. Administrativo: leitura por `patients:read` (ou `patients:read-own` no próprio paciente), escrita por `patients:write`. Financeiro: leitura `finance:read`, escrita `finance:write`. Listar exige `documents:read`. O Administrador (acesso total) lê e escreve qualquer classificação, de qualquer paciente.
 - **RN-DOC-002** Documento clínico referencia um registro `documento clínico` do prontuário do mesmo paciente (`clinicalRecordId` = id raiz). O conteúdo clínico não é copiado para este módulo.
 - **RN-DOC-003** Só rascunho é editável. Emitir documento clínico exige o registro vinculado `finalizado`. Arquivar é definitivo e revoga liberações ativas.
 - **RN-DOC-004** Liberação exige documento `emitido`, responsável vinculado ao paciente com `canReceiveDocuments`, e sem liberação ativa para o mesmo responsável. Quem libera precisa de escrita na classificação.

@@ -10,21 +10,12 @@ export interface CellLock {
   reason: string
 }
 
-const ADMIN_REQUIRED: readonly string[] = ["users:read", "users:manage", "settings:manage"]
+export const ADMIN_FULL_ACCESS = "O administrador tem acesso total."
 
-/**
- * Regras que a API também impõe (422): o administrador nunca recebe permissões clínicas (RN-AUTH-002) e
- * não perde o acesso a usuários e configurações — a clínica não pode se trancar fora destas telas.
- */
-export function cellLock(role: Role, permission: string): CellLock | null {
+/** A API recusa (422) qualquer alteração no administrador: a coluna dele é sempre marcada e travada. */
+export function cellLock(role: Role, _permission: string): CellLock | null {
   if (role !== "admin") return null
-  if (permission.startsWith("clinical:")) {
-    return { checked: false, reason: "O administrador não tem acesso clínico (gestão administrativa não implica acesso a prontuários)." }
-  }
-  if (ADMIN_REQUIRED.includes(permission)) {
-    return { checked: true, reason: "O administrador precisa manter o acesso a usuários e configurações." }
-  }
-  return null
+  return { checked: true, reason: ADMIN_FULL_ACCESS }
 }
 
 export function matrixOf(roles: { key: string; permissions: string[] }[]): RoleMatrix {

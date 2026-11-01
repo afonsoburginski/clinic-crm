@@ -51,26 +51,19 @@ export interface SystemRole {
 
 export const ADMIN_ROLE = "admin"
 
-/** The administrator can never lose these, or the clinic could lock itself out of the settings and user screens. */
-export const ADMIN_LOCKED_PERMISSIONS: readonly string[] = ["users:read", "users:manage", "settings:manage"]
+/** Every key of the catalog, in catalog order. */
+export const allPermissions = (): string[] => PERMISSION_CATALOG.map((permission) => permission.key)
 
-/**
- * RN-AUTH-002: administrative management does not imply clinical access. `clinical:*` is never granted to
- * the administrator role, and a user holding it is stripped of clinical permissions (the HTTP guard enforces the same).
- */
-export const isClinicalPermission = (key: string) => key.startsWith("clinical:")
+/** The administrator can do everything: no permission, patient link or classification check ever stops this role. */
+export const hasAdminRole = (roles: readonly string[]) => roles.includes(ADMIN_ROLE)
 
 export const SYSTEM_ROLES: readonly SystemRole[] = [
   {
     key: ADMIN_ROLE,
     label: "Administrador",
-    description: "Gestão administrativa da clínica; sem acesso clínico.",
-    permissions: [
-      "dashboard:read", "patients:read", "patients:write", "guardians:write", "appointments:read",
-      "appointments:write", "appointments:cancel", "professionals:manage", "services:manage", "rooms:manage",
-      "settings:manage", "audit:read", "finance:read", "finance:export", "team:invite", "documents:read", "users:read",
-      "users:manage",
-    ],
+    description: "Acesso total à clínica, sem exceção.",
+    // Derived from the catalog, so a permission added later reaches the administrator without touching this list.
+    permissions: allPermissions(),
   },
   {
     key: "reception",
@@ -115,31 +108,31 @@ export function defaultPermissionsOf(roleKey: string): readonly string[] {
 
 /**
  * Union of the permissions of the user's roles, restricted to the catalog. `matrix` is the persisted
- * role → permissions map; a role missing from it grants nothing.
+ * role → permissions map; a role missing from it grants nothing. The administrator role grants the whole
+ * catalog whatever the matrix holds.
  */
 export function effectivePermissions(
   roles: readonly string[],
   matrix: ReadonlyMap<string, readonly string[]>,
 ): string[] {
+  if (hasAdminRole(roles)) return allPermissions()
   const granted = new Set<string>()
   for (const role of roles) for (const key of matrix.get(role) ?? []) if (isKnownPermission(key)) granted.add(key)
-  if (roles.includes(ADMIN_ROLE)) for (const key of [...granted]) if (isClinicalPermission(key)) granted.delete(key)
   return [...granted]
 }
 
 export type RolePermissionsCheck = { ok: true; permissions: string[] } | { ok: false; reason: string }
 
-/** Rules for saving a role's permission set: only known keys, and the administrator keeps its locked ones. */
+/** Rules for saving a role's permission set: only known keys, and the administrator is immutable (always the whole catalog). */
 export function checkRolePermissions(roleKey: string, requested: readonly string[]): RolePermissionsCheck {
   const permissions = [...new Set(requested)]
   const unknown = permissions.find((key) => !isKnownPermission(key))
   if (unknown) return { ok: false, reason: `Permissão desconhecida: ${unknown}.` }
   if (roleKey === ADMIN_ROLE) {
-    if (permissions.some(isClinicalPermission)) {
-      return { ok: false, reason: "O administrador não pode receber permissões clínicas." }
+    if (allPermissions().some((key) => !permissions.includes(key))) {
+      return { ok: false, reason: "O administrador tem acesso total e não pode ser alterado." }
     }
-    const missing = ADMIN_LOCKED_PERMISSIONS.find((key) => !permissions.includes(key))
-    if (missing) return { ok: false, reason: "O administrador precisa manter o acesso a usuários e configurações." }
+    return { ok: true, permissions: allPermissions() }
   }
   return { ok: true, permissions }
 }

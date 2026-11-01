@@ -20,8 +20,8 @@ describe("AUTH — permissões", () => {
     expect(perms.has("appointments:read")).toBe(true)
   })
 
-  it("RN-AUTH-002 · administrador não tem acesso clínico", () => {
-    expect(can(user(["admin"]), "clinical:read")).toBe(false)
+  it("administrador tem acesso total, inclusive clínico (revoga a RN-AUTH-002)", () => {
+    for (const permission of PERMISSIONS) expect(can(user(["admin"]), permission)).toBe(true)
     expect(can(user(["professional"], "p1"), "clinical:read")).toBe(true)
   })
 
@@ -55,11 +55,11 @@ describe("FIN — exportação (RN-FIN-014)", () => {
     expect(PERMISSION_LABELS["finance:export"]).toEqual({ label: "Exportar o financeiro (XLSX)", group: "Financeiro" })
   })
 
-  it("a matriz editada pela clínica manda: sem finance:export na sessão, nem o Administrador exporta (CA-FIN-007)", () => {
+  it("a matriz editada pela clínica manda: sem finance:export na sessão, o Financeiro não exporta; o Administrador sempre exporta (CA-FIN-007)", () => {
     const readOnly = { ...user(["finance"]), permissions: ["finance:read", "finance:write"] }
     expect(can(readOnly, "finance:read")).toBe(true)
     expect(can(readOnly, "finance:export")).toBe(false)
-    expect(can({ ...user(["admin"]), permissions: ["finance:read"] }, "finance:export")).toBe(false)
+    expect(can({ ...user(["admin"]), permissions: ["finance:read"] }, "finance:export")).toBe(true)
   })
 })
 
@@ -108,15 +108,15 @@ describe("AUTH — matriz papel × permissão (a API aplica; a UI só espelha)",
   const roles = ["admin", "reception", "professional", "finance", "manager"] as const
   const holders = (permission: Parameters<typeof can>[1]) => roles.filter((role) => can(user([role], "p1"), permission))
 
-  it("só o financeiro escreve no financeiro; a administração apenas lê (CA-FIN-004)", () => {
-    expect(holders("finance:write")).toEqual(["finance"])
+  it("o financeiro e a administração (acesso total) escrevem no financeiro (CA-FIN-004)", () => {
+    expect(holders("finance:write")).toEqual(["admin", "finance"])
     expect(holders("finance:read")).toEqual(["admin", "finance"])
   })
 
-  it("recepção, financeiro, gestor e administração não leem nem escrevem prontuário (CA-PRN-001)", () => {
-    expect(holders("clinical:read")).toEqual(["professional"])
-    expect(holders("clinical:write")).toEqual(["professional"])
-    expect(holders("assessments:interpret")).toEqual(["professional"])
+  it("só profissional e administração (acesso total) leem e escrevem prontuário; recepção, financeiro e gestor não (CA-PRN-001)", () => {
+    expect(holders("clinical:read")).toEqual(["admin", "professional"])
+    expect(holders("clinical:write")).toEqual(["admin", "professional"])
+    expect(holders("assessments:interpret")).toEqual(["admin", "professional"])
   })
 
   it("financeiro não gerencia configurações nem catálogo (CA-AUTH-003)", () => {
@@ -129,9 +129,9 @@ describe("AUTH — matriz papel × permissão (a API aplica; a UI só espelha)",
 
   it("profissional enxerga só os próprios pacientes e a própria agenda", () => {
     expect(holders("patients:read")).toEqual(["admin", "reception", "finance"])
-    expect(holders("patients:read-own")).toEqual(["professional"])
+    expect(holders("patients:read-own")).toEqual(["admin", "professional"])
     expect(holders("patients:write")).toEqual(["admin", "reception"])
-    expect(holders("appointments:read-own")).toEqual(["professional"])
+    expect(holders("appointments:read-own")).toEqual(["admin", "professional"])
   })
 
   it("todo papel acessa o painel; documentos só para quem lida com pacientes ou finanças", () => {
@@ -155,9 +155,11 @@ describe("USR — permissões efetivas vindas da API", () => {
     expect(can(user(["reception"]), "patients:write")).toBe(true)
   })
 
-  it("RN-AUTH-002 · quem tem o papel admin não herda permissão clínica nem pelo padrão", () => {
-    expect(can(user(["admin", "professional"]), "clinical:read")).toBe(false)
+  it("quem tem o papel admin recebe o catálogo inteiro, mesmo com papéis extras ou sessão com poucas permissões", () => {
+    expect(can(user(["admin", "professional"]), "clinical:read")).toBe(true)
     expect(can(user(["admin", "professional"]), "appointments:read-own")).toBe(true)
+    expect(can(withPermissions(["admin"], []), "clinical:write")).toBe(true)
+    expect([...permissionsFor(["admin"])]).toEqual([...PERMISSIONS])
   })
 
   it("RN-USR-001 · administrador gere usuários; os demais papéis não", () => {

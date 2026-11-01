@@ -2,15 +2,15 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import type { AuthSessionStore } from "@/application/ports/auth-sessions"
 import type { UserDirectory } from "@/application/ports/users"
 import { parseProvisionedUsers } from "@/application/use-cases/provisioned-users"
-import { effectivePermissions, SYSTEM_ROLE_KEYS } from "@/domain/permissions"
+import { effectivePermissions, hasAdminRole, SYSTEM_ROLE_KEYS } from "@/domain/permissions"
 
 /** Role keys come from the database (`roles`); the system roles are the ones every clinic starts with. */
 export type Role = string
 export type User = { id: string; name: string; email: string; roles: Role[]; permissions: string[]; professionalId?: string }
 
-/** The effective permissions are resolved when the session is read, from the persisted role matrix. */
+/** The effective permissions are resolved when the session is read, from the persisted role matrix. The administrator passes every check. */
 export function hasPermission(user: User, permission: string) {
-  return user.permissions.includes(permission)
+  return hasAdminRole(user.roles) || user.permissions.includes(permission)
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

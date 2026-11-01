@@ -177,10 +177,11 @@ describe("FIN — resumo por competência (RF-FIN-003)", () => {
 describe("FIN — permissões (RN-FIN-010, CA-FIN-004)", () => {
   const has = (role: Role, p: Parameters<ReturnType<typeof permissionsFor>["has"]>[0]) => permissionsFor([role]).has(p)
 
-  it("só o financeiro escreve; administrador apenas lê", () => {
+  it("o financeiro escreve; o administrador (acesso total) também; os demais não", () => {
     expect(has("finance", "finance:write")).toBe(true)
     expect(has("admin", "finance:read")).toBe(true)
-    expect(has("admin", "finance:write")).toBe(false)
+    expect(has("admin", "finance:write")).toBe(true)
+    for (const role of ["reception", "professional", "manager"] as Role[]) expect(has(role, "finance:write")).toBe(false)
   })
 
   it("recepção, profissional e gestor não acessam o financeiro", () => {

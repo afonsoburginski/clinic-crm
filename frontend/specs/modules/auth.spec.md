@@ -15,7 +15,7 @@ Gestão de usuários, papéis e a matriz editável: `specs/modules/users-roles.s
 ## Regras de negócio
 
 - **RN-AUTH-001** Permissões são a união dos papéis do usuário, conforme a matriz papel × permissão **salva no banco** (editável em Configurações > Papéis e permissões). A API devolve as permissões efetivas em `user.permissions` (login e `GET /auth/session`) e a UI usa essas; o padrão da tabela abaixo é o ponto de partida de cada clínica e só serve de reserva para uma sessão antiga sem o campo.
-- **RN-AUTH-002** Administrador **não** recebe `clinical:read` — gestão administrativa não implica acesso clínico. A matriz não aceita `clinical:*` no papel Administrador e quem tem esse papel nunca fica com permissão clínica efetiva, mesmo que outro papel dele a conceda (a API também nega as rotas clínicas).
+- **RN-AUTH-002** (revogada) O Administrador pode **tudo**, sem exceção: tem todas as permissões do catálogo, inclusive `clinical:*`, e passa nas checagens de vínculo com o paciente e de classificação de documentos. A matriz do Administrador é imutável (a API recusa edição com 422) e permissão nova do catálogo entra nele automaticamente. Antes, gestão administrativa não implicava acesso clínico.
 - **RN-AUTH-003** Profissional enxerga apenas a própria agenda e os pacientes que atende. "Atende" = atendimento `confirmado`, `em atendimento` ou `concluído`, ou ser o profissional de referência do paciente (RN-PRN-001). Solicitado, pendente, cancelado e falta não vinculam, e profissional inativo não alcança nenhum paciente.
 - **RN-AUTH-004** Toda checagem de permissão acontece no servidor (a API responde 403); a UI apenas oculta ações e traduz a recusa em mensagem clara.
 - **RN-AUTH-005** Após 5 falhas seguidas de login para o mesmo e-mail, o acesso fica bloqueado por 5 minutos (`domain/login-lockout.ts`). Login bem-sucedido zera o contador.
@@ -35,11 +35,11 @@ Gestão de usuários, papéis e a matriz editável: `specs/modules/users-roles.s
 | settings:manage | x | | | | |
 | users:read / users:manage | x | | | | |
 | audit:read | x | | | | x |
-| clinical:read | | | x | | |
-| clinical:write | | | x | | |
-| assessments:interpret | | | x | | |
+| clinical:read | x | | x | | |
+| clinical:write | x | | x | | |
+| assessments:interpret | x | | x | | |
 | finance:read | x | | | x | |
-| finance:write | | | | x | |
+| finance:write | x | | | x | |
 | finance:export (XLSX do financeiro) | x | | | x | |
 | documents:read | x | x | x | x | |
 

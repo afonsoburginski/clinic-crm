@@ -14,7 +14,7 @@ import type {
   UserRecord,
   UserRepository,
 } from "@/application/ports/users"
-import { ADMIN_ROLE, PERMISSION_CATALOG, SYSTEM_ROLE_KEYS, SYSTEM_ROLES } from "@/domain/permissions"
+import { ADMIN_ROLE, allPermissions, PERMISSION_CATALOG, SYSTEM_ROLE_KEYS, SYSTEM_ROLES } from "@/domain/permissions"
 import { db, type Database } from "@/infrastructure/postgres/drizzle"
 import {
   auditEvents,
@@ -242,6 +242,11 @@ async function seedDefaults(executor: Executor, clinicId: string) {
     })),
   )
   if (grants.length) await executor.insert(rolePermissions).values(grants).onConflictDoNothing()
+  // The administrator is immutable and always holds the whole catalog, so a permission added later is granted here.
+  await executor
+    .insert(rolePermissions)
+    .values(allPermissions().map((permissionKey) => ({ clinicId, roleKey: ADMIN_ROLE, permissionKey })))
+    .onConflictDoNothing()
 }
 
 async function importProvisioned(executor: Executor, clinicId: string, provisioned: readonly ProvisionedUser[]) {

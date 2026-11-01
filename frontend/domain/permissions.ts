@@ -69,31 +69,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   manager: "Gestor",
 }
 
-/**
- * Administrador não recebe `clinical:read` (RN006): gestão administrativa
- * não implica acesso ao conteúdo clínico.
- */
+/** O administrador pode tudo: acesso total, sem exceção (derivado do catálogo, igual ao backend). */
+export function isAdmin(user: Pick<User, "roles"> | null | undefined): boolean {
+  return !!user?.roles?.includes("admin")
+}
+
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  admin: [
-    "dashboard:read",
-    "patients:read",
-    "patients:write",
-    "guardians:write",
-    "appointments:read",
-    "appointments:write",
-    "appointments:cancel",
-    "professionals:manage",
-    "services:manage",
-    "rooms:manage",
-    "settings:manage",
-    "audit:read",
-    "finance:read",
-    "finance:export",
-    "team:invite",
-    "documents:read",
-    "users:read",
-    "users:manage",
-  ],
+  admin: [...PERMISSIONS],
   reception: [
     "dashboard:read",
     "patients:read",
@@ -129,19 +111,20 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 /**
  * Permissões padrão da união dos papéis. A API é quem decide (matriz editável no banco) e devolve as efetivas
  * em `user.permissions`; este cálculo só vale para sessões antigas, sem esse campo. Quem tem o papel
- * `admin` nunca fica com `clinical:*` (RN-AUTH-002), igual ao backend.
+ * `admin` recebe o catálogo inteiro, igual ao backend.
  */
 export function permissionsFor(roles: Role[]): Set<Permission> {
+  if (roles.includes("admin")) return new Set(PERMISSIONS)
   const set = new Set<Permission>()
   for (const role of roles) {
     for (const p of ROLE_PERMISSIONS[role] ?? []) set.add(p)
   }
-  if (roles.includes("admin")) for (const p of set) if (p.startsWith("clinical:")) set.delete(p)
   return set
 }
 
-/** Permissões efetivas do usuário: as da API quando presentes, senão o padrão dos papéis. */
+/** Permissões efetivas do usuário: o catálogo inteiro para o administrador; senão as da API, ou o padrão dos papéis. */
 export function effectivePermissions(user: User): ReadonlySet<string> {
+  if (isAdmin(user)) return new Set(PERMISSIONS)
   return user.permissions ? new Set(user.permissions) : permissionsFor(user.roles)
 }
 

@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import {
-  ADMIN_LOCKED_PERMISSIONS,
   checkRolePermissions,
   defaultMatrix,
   effectivePermissions,
-  isClinicalPermission,
   PERMISSION_CATALOG,
   SYSTEM_ROLES,
 } from "@/domain/permissions"
@@ -20,10 +18,9 @@ describe("default roles", () => {
     for (const role of SYSTEM_ROLES) for (const key of role.permissions) expect(keys).toContain(key)
   })
 
-  test("the administrator manages users and settings but has no clinical permission (RN-AUTH-002)", () => {
+  test("the administrator holds every permission of the catalog, clinical ones included", () => {
     const admin = SYSTEM_ROLES.find((role) => role.key === "admin")!
-    for (const key of ADMIN_LOCKED_PERMISSIONS) expect(admin.permissions).toContain(key)
-    expect(admin.permissions.some(isClinicalPermission)).toBe(false)
+    expect([...admin.permissions]).toEqual(PERMISSION_CATALOG.map((p) => p.key))
   })
 
   test("migrations 006 and 008 seed exactly the permission catalog", () => {
@@ -45,11 +42,10 @@ describe("effectivePermissions", () => {
     expect(result.has("clinical:read")).toBe(true)
   })
 
-  test("strips clinical permissions from anyone holding the administrator role", () => {
-    const result = effective("admin", "professional")
-    expect(result.has("users:manage")).toBe(true)
-    expect(result.has("clinical:read")).toBe(false)
-    expect(result.has("clinical:write")).toBe(false)
+  test("grants the whole catalog to anyone holding the administrator role, whatever the matrix says", () => {
+    const all = PERMISSION_CATALOG.map((p) => p.key)
+    expect([...effective("admin", "professional")].sort()).toEqual([...all].sort())
+    expect([...new Set(effectivePermissions(["admin"], new Map()))].sort()).toEqual([...all].sort())
   })
 
   test("a role missing from the matrix and unknown keys grant nothing", () => {
@@ -65,10 +61,11 @@ describe("checkRolePermissions", () => {
   test("rejects unknown keys", () => {
     expect(checkRolePermissions("finance", ["finance:fly"])).toMatchObject({ ok: false })
   })
-  test("keeps the administrator's locked permissions and clinical ban", () => {
-    expect(checkRolePermissions("admin", [...ADMIN_LOCKED_PERMISSIONS, "dashboard:read"])).toMatchObject({ ok: true })
+  test("the administrator is immutable: it keeps the whole catalog and refuses any smaller set", () => {
+    const all = PERMISSION_CATALOG.map((p) => p.key)
+    expect(checkRolePermissions("admin", all)).toEqual({ ok: true, permissions: all })
     expect(checkRolePermissions("admin", ["dashboard:read"])).toMatchObject({ ok: false })
-    expect(checkRolePermissions("admin", [...ADMIN_LOCKED_PERMISSIONS, "clinical:write"])).toMatchObject({ ok: false })
+    expect(checkRolePermissions("admin", all.filter((key) => key !== "clinical:write"))).toMatchObject({ ok: false })
     expect(checkRolePermissions("finance", ["clinical:read"])).toMatchObject({ ok: true })
   })
 })

@@ -4,6 +4,7 @@ import { databaseReady } from "@/infrastructure/database";
 
 import { getResource } from "@/application/resources";
 import { AUTHENTICATED, hasPermission, permissionFor, type Auth } from "@/application/auth";
+import { hasAdminRole } from "@/domain/permissions";
 import { auth } from "@/presentation/composition/auth";
 import { clinic, run, failure, type ApiEnv } from "@/presentation/routes/shared";
 export function createAuthRouter(auth: Auth) {
@@ -35,8 +36,9 @@ export function createAuthRouter(auth: Auth) {
       let allowed = permission === AUTHENTICATED ? true : permission === "documents:write" ? false : hasPermission(user, permission);
       if (!allowed && permission === "appointments:read") allowed = hasPermission(user, "appointments:read-own");
       if (!allowed && permission === "patients:read") allowed = hasPermission(user, "patients:read-own");
-      if (permission.startsWith("clinical:") && user.roles.includes("admin")) allowed = false;
-      if (c.req.path.startsWith("/api/v1/documents")) {
+      // The administrator passes every permission and document-classification check (routes without a mapped permission stay denied).
+      if (hasAdminRole(user.roles)) allowed = true;
+      else if (c.req.path.startsWith("/api/v1/documents")) {
         const parts = c.req.path.split("/");
         const id = c.req.param("id") || parts[4];
         const body =

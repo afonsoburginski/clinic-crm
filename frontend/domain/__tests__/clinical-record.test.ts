@@ -40,10 +40,18 @@ describe("PRN — acesso (RN-PRN-001/002)", () => {
     expect(canWriteClinical(author, false)).toBe(false)
   })
 
-  it.each<Role>(["reception", "finance", "admin", "manager"])("%s nunca acessa prontuário (CA-PRN-001)", (role) => {
+  it.each<Role>(["reception", "finance", "manager"])("%s nunca acessa prontuário (CA-PRN-001)", (role) => {
     const u = user([role], "x")
     expect(canReadClinical(u, true)).toBe(false)
     expect(canWriteClinical(u, true)).toBe(false)
+  })
+
+  it("admin acessa prontuário de qualquer paciente, com ou sem vínculo (acesso total)", () => {
+    const u = user(["admin"], "x")
+    for (const own of [true, false]) {
+      expect(canReadClinical(u, own)).toBe(true)
+      expect(canWriteClinical(u, own)).toBe(true)
+    }
   })
 
   it("gestor que também é profissional acessa só pelo papel profissional", () => {

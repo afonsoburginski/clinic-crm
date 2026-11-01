@@ -20,8 +20,8 @@ Testes: `domain/__tests__/{roles-matrix,users,permissions}.test.ts`, `shared/api
 - **RN-USR-004** Senha com no mínimo 8 caracteres (criação e redefinição); a redefinição exige confirmação igual e encerra as sessões do usuário. A senha nunca é guardada nem exibida no cliente.
 - **RN-USR-005** Papéis são os 5 de sistema (Administrador, Recepção, Profissional, Financeiro, Gestor); a UI não cria papel novo. Cada usuário tem ao menos um papel.
 - **RN-USR-006** A matriz é salva por papel (um PUT por papel alterado); depois a sessão do usuário atual é relida, porque a alteração pode mudar as permissões dele.
-- **RN-USR-007** Células travadas: o Administrador nunca recebe `clinical:read/write` (RN-AUTH-002) e a UI as mostra desmarcadas e desabilitadas, com aviso.
-- **RN-USR-008** O Administrador mantém `users:read`, `users:manage` e `settings:manage`: a UI as mostra marcadas e desabilitadas; a API também recusa tirá-las (422).
+- **RN-USR-007** A coluna do Administrador é sempre marcada e desabilitada (acesso total, RN-AUTH-002 revogada), com a dica "O administrador tem acesso total.", e o menu do papel não oferece "Editar permissões" para ele.
+- **RN-USR-008** A API também recusa qualquer alteração na matriz do Administrador (422): ele é imutável e permissão nova do catálogo entra nele sozinha.
 - **RN-USR-009** Quem tem o papel Profissional sem profissional vinculado vê o aviso de que precisa do vínculo para acessar a própria agenda e os pacientes que atende.
 
 ## Critérios de aceite
@@ -31,5 +31,5 @@ Testes: `domain/__tests__/{roles-matrix,users,permissions}.test.ts`, `shared/api
 - **CA-USR-003** Dado o único administrador ativo, quando se tenta desativá-lo, então a API recusa (409) e a tela mostra a mensagem, sem alterar nada.
 - **CA-USR-004** Dada senha com menos de 8 caracteres, quando se salva, então o formulário recusa sem chamar a API.
 - **CA-USR-005** Dada a matriz com o papel Recepção alterado, quando se salva, então só a Recepção é enviada e a matriz recarrega do servidor.
-- **CA-USR-006** Dado o papel Administrador, então as células de `clinical:*` ficam desmarcadas e as de usuários/configurações marcadas, todas desabilitadas.
+- **CA-USR-006** Dado o papel Administrador, então todas as células da coluna dele ficam marcadas e desabilitadas.
 - **CA-USR-007** Dado um perfil com `users:read`, quando abre o detalhe de um lançamento com pagamento registrado por outra pessoa, então vê o nome dela; sem a permissão, vê "Usuário da clínica".

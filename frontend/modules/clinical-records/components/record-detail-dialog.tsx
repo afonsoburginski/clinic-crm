@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { RECORD_KIND_LABELS, RECORD_STATUS_LABELS } from "@/domain/clinical-record"
+import { isAdmin } from "@/domain/permissions"
 import type { ClinicalRecord, ClinicalRecordAction } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { useCan, useCurrentUser } from "@/shared/lib/current-user"
@@ -44,7 +45,7 @@ export function RecordDetailDialog({
   const finalize = useFinalizeRecord()
   const rectify = useRectifyRecord()
 
-  const isAuthor = !!record && canWrite && user?.id === record.authorId
+  const isAuthor = !!record && canWrite && (user?.id === record.authorId || isAdmin(user))
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>

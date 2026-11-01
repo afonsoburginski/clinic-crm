@@ -44,8 +44,8 @@ describe("ABA — ações do plano", () => {
     expect(visibleIds(abaPlanActions(plan("closed"), handlers()), professional)).toEqual(["view", "duplicate", "copy-id"])
   })
 
-  it("quem não tem clinical:write (administrador, financeiro) só vê e copia", () => {
-    expect(visibleIds(abaPlanActions(plan("active"), handlers()), userWith(["admin"]))).toEqual(["view", "copy-id"])
+  it("quem não tem clinical:write (financeiro) só vê e copia", () => {
+    expect(visibleIds(abaPlanActions(plan("active"), handlers()), userWith(["finance"]))).toEqual(["view", "copy-id"])
   })
 
   it("encerrar leva o motivo digitado; na própria página o 'Ver' some", async () => {

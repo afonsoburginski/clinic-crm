@@ -25,8 +25,8 @@ const tokens: Record<string, User> = {
   reception: sessionUser(["reception"]),
   finance: sessionUser(["finance"]),
   reader: { ...sessionUser(["manager"]), permissions: ["users:read"] },
-  // The permission is present, but the administrator role never reaches clinical routes (RN-AUTH-002).
-  tampered: sessionUser(["admin"], ["clinical:read"]),
+  // The administrator passes the guard even when the session carries no permission at all.
+  bare: { ...sessionUser(["admin"]), permissions: [] },
 }
 
 const fakeAuth = {
@@ -88,8 +88,10 @@ describe("access to users, roles and permissions", () => {
     expect((await send("reader", "PUT", "/api/v1/roles/reception/permissions", { permissions: [] })).status).toBe(403)
   })
 
-  test("a user holding clinical:read through the administrator role still cannot reach clinical routes", async () => {
-    expect((await send("tampered", "GET", "/api/v1/clinical-records")).status).toBe(403)
+  test("the administrator reaches clinical routes", async () => {
+    for (const token of ["admin", "bare"]) {
+      expect([token, (await send(token, "GET", "/api/v1/clinical-records")).status]).not.toEqual([token, 403])
+    }
   })
 })
 
@@ -150,13 +152,13 @@ describe("roles and permissions API", () => {
     expect(catalog.items.map((group) => group.group)).toContain("Financeiro")
   })
 
-  test("saves a role's permissions and refuses unknown ones and the administrator's clinical access", async () => {
+  test("saves a role's permissions and refuses unknown ones and any change to the administrator", async () => {
     const saved = await send("admin", "PUT", "/api/v1/roles/reception/permissions", { permissions: ["dashboard:read"] })
     expect(saved.status).toBe(200)
     expect(await saved.json()).toMatchObject({ key: "reception", permissions: ["dashboard:read"] })
     expect((await send("admin", "PUT", "/api/v1/roles/reception/permissions", { permissions: ["x:y"] })).status).toBe(422)
-    const adminClinical = ["users:read", "users:manage", "settings:manage", "clinical:read"]
-    expect((await send("admin", "PUT", "/api/v1/roles/admin/permissions", { permissions: adminClinical })).status).toBe(422)
+    const adminPartial = ["users:read", "users:manage", "settings:manage", "clinical:read"]
+    expect((await send("admin", "PUT", "/api/v1/roles/admin/permissions", { permissions: adminPartial })).status).toBe(422)
     expect((await send("admin", "PUT", "/api/v1/roles/ghost/permissions", { permissions: [] })).status).toBe(404)
   })
 })
