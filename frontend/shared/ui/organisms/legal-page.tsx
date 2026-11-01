@@ -5,21 +5,16 @@ export interface LegalSection {
   body: React.ReactNode
 }
 
-export const PRIVACY_CONTACT_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL
+/** Encarregado pelo tratamento de dados pessoais (LGPD): canal público de contato do titular. */
+export const PRIVACY_CONTACT_EMAIL = "afonsoburginski@gmail.com"
 
 export function ContactLine() {
   return (
     <>
-      fale com a recepção da clínica
-      {PRIVACY_CONTACT_EMAIL ? (
-        <>
-          {" "}
-          ou escreva para{" "}
-          <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="font-medium text-primary underline underline-offset-4">
-            {PRIVACY_CONTACT_EMAIL}
-          </a>
-        </>
-      ) : null}
+      fale com a recepção da clínica ou escreva ao responsável pela proteção de dados (LGPD) em{" "}
+      <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="font-medium text-primary underline underline-offset-4">
+        {PRIVACY_CONTACT_EMAIL}
+      </a>
     </>
   )
 }
