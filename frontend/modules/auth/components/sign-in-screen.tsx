@@ -52,6 +52,9 @@ export function SignInScreen() {
           <p className="leading-relaxed text-muted-foreground">Use seu e-mail e senha de acesso da clínica.</p>
         </div>
         <SignInForm />
+        <a href="/politica-de-privacidade" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+          Política de Privacidade
+        </a>
       </section>
     </main>
   )
