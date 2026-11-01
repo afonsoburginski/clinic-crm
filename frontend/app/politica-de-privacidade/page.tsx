@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import Link from "next/link"
+
+import { ContactLine, LegalPage, type LegalSection } from "@/shared/ui/organisms/legal-page"
 
 export const metadata: Metadata = {
   title: "Política de Privacidade",
@@ -7,10 +8,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-const UPDATED_AT = "1º de novembro de 2026"
-const CONTACT_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL
-
-const SECTIONS: { title: string; body: React.ReactNode }[] = [
+const SECTIONS: LegalSection[] = [
   {
     title: "1. Quem somos",
     body: (
@@ -175,17 +173,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "11. Como falar com a gente",
     body: (
       <p>
-        Para exercer seus direitos ou tirar dúvidas sobre esta política, fale com a recepção da clínica
-        {CONTACT_EMAIL ? (
-          <>
-            {" "}
-            ou escreva para{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-primary underline underline-offset-4">
-              {CONTACT_EMAIL}
-            </a>
-          </>
-        ) : null}
-        . Respondemos nos prazos da LGPD.
+        Para exercer seus direitos ou tirar dúvidas sobre esta política, <ContactLine />. Respondemos nos prazos da LGPD.
       </p>
     ),
   },
@@ -201,30 +189,5 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
 ]
 
 export default function PrivacyPolicyPage() {
-  return (
-    <main className="min-h-dvh bg-background">
-      <div className="mx-auto w-full max-w-3xl px-5 py-12 sm:py-16">
-        <Link href="/entrar" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-          ← Voltar
-        </Link>
-        <header className="mt-6 border-b border-border pb-6">
-          <p className="text-sm font-medium text-primary">Villiére</p>
-          <h1 className="mt-1 font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Política de Privacidade
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">Última atualização: {UPDATED_AT}</p>
-        </header>
-        <div className="mt-8 space-y-8">
-          {SECTIONS.map((section) => (
-            <section key={section.title}>
-              <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
-              <div className="mt-2 space-y-3 text-[15px] leading-relaxed text-muted-foreground [&_li]:ml-5 [&_li]:list-disc [&_li]:pl-1 [&_ul]:space-y-2 [&_strong]:font-semibold [&_strong]:text-foreground">
-                {section.body}
-              </div>
-            </section>
-          ))}
-        </div>
-      </div>
-    </main>
-  )
+  return <LegalPage title="Política de Privacidade" updatedAt="1º de novembro de 2026" sections={SECTIONS} />
 }
