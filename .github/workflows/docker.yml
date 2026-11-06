@@ -80,23 +80,39 @@ jobs:
     env:
       ORBIT_URL: ${{ vars.ORBIT_URL }}
       ORBIT_DEPLOY_TOKEN: ${{ secrets.ORBIT_DEPLOY_TOKEN }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       TAG: sha-${{ github.sha }}
     steps:
       - name: Entregar pelo Orbit
         run: |
           set -euo pipefail
-          [ -n "$ORBIT_URL" ] && [ -n "$ORBIT_DEPLOY_TOKEN" ] || { echo "::error::defina a variável ORBIT_URL e o secret ORBIT_DEPLOY_TOKEN"; exit 1; }
+          [ -n "$ORBIT_URL" ] && [ -n "$ORBIT_DEPLOY_TOKEN" ] && [ -n "$CF_ACCESS_CLIENT_ID" ] && [ -n "$CF_ACCESS_CLIENT_SECRET" ] || { echo "::error::configure ORBIT_URL, ORBIT_DEPLOY_TOKEN, CF_ACCESS_CLIENT_ID e CF_ACCESS_CLIENT_SECRET"; exit 1; }
           body=$(jq -cn --arg tag "$TAG" '{environment: "villiere", services: [{service: "api", tag: $tag}, {service: "web", tag: $tag}]}')
           response=$(curl -sS --max-time 60 -w '\n%{http_code}' -X POST "$ORBIT_URL/api/hooks/deploy?wait=false" \
-            -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" -H 'Content-Type: application/json' -d "$body")
+            -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H 'Content-Type: application/json' -d "$body")
           code=$(tail -n1 <<<"$response"); response=$(sed '$d' <<<"$response")
-          [ "$code" = 202 ] || [ "$code" = 200 ] || { echo "::error::Orbit recusou ($code): $(jq -r '.error // .' <<<"$response")"; exit 1; }
+          if [ "$code" != 202 ] && [ "$code" != 200 ]; then
+            message=$(jq -r 'if type == "object" then .error // .message // empty else empty end' <<<"$response" 2>/dev/null || true)
+            [ -n "$message" ] || message="resposta não JSON; verifique ORBIT_URL e os secrets do Cloudflare Access"
+            echo "::error::Orbit recusou ($code): $message"
+            exit 1
+          fi
           id=$(jq -r .id <<<"$response")
           for attempt in $(seq 1 120); do
-            response=$(curl -sS --max-time 30 -w '\n%{http_code}' "$ORBIT_URL/api/hooks/deploy/$id" -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" || printf '\n000')
+            response=$(curl -sS --max-time 30 -w '\n%{http_code}' "$ORBIT_URL/api/hooks/deploy/$id" \
+              -H "Authorization: Bearer $ORBIT_DEPLOY_TOKEN" \
+              -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+              -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" || printf '\n000')
             code=$(tail -n1 <<<"$response"); response=$(sed '$d' <<<"$response")
             if [ "$code" = 202 ] || [ "$code" = 000 ]; then sleep 5; continue; fi
             if [ "$code" = 200 ] && [ "$(jq -r .state <<<"$response")" = ok ]; then echo "✓ Orbit entregou api e web → $TAG"; exit 0; fi
-            echo "::error::Orbit não entregou ($code): $(jq -r '.error // .' <<<"$response")"; exit 1
+            message=$(jq -r 'if type == "object" then .error // .message // empty else empty end' <<<"$response" 2>/dev/null || true)
+            [ -n "$message" ] || message="resposta não JSON; verifique ORBIT_URL e os secrets do Cloudflare Access"
+            echo "::error::Orbit não entregou ($code): $message"
+            exit 1
           done
           echo "::error::Orbit não terminou em 10 min (deploy $id)"; exit 1
