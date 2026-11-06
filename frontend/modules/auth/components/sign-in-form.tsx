@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
-import { HaloButton } from "@/components/ui/halo-button"
+import { Button } from "@/components/ui/button"
 import { loginSchema, type LoginInput } from "@/domain/schemas"
 import { api } from "@/shared/api/api"
 import { afterLoginPath } from "@/shared/lib/return-to"
@@ -41,7 +41,7 @@ export function SignInForm() {
   }
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-6">
+    <div className="flex w-full max-w-md flex-col gap-6">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4" aria-describedby="login-error">
         <FormField id="email" label="E-mail" error={errors.email?.message} required>
           <Input
@@ -50,6 +50,7 @@ export function SignInForm() {
             autoComplete="email"
             inputMode="email"
             placeholder="voce@clinica.com.br"
+            innerRowClassName="min-h-12 px-4"
             aria-invalid={errors.email ? true : undefined}
             aria-describedby={errors.email ? "email-error" : undefined}
             leadingSlot={<Mail className="size-4 text-muted-foreground" aria-hidden />}
@@ -63,6 +64,7 @@ export function SignInForm() {
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             placeholder="Sua senha"
+            innerRowClassName="min-h-12 px-4"
             aria-invalid={errors.password ? true : undefined}
             aria-describedby={errors.password ? "password-error" : undefined}
             leadingSlot={<Lock className="size-4 text-muted-foreground" aria-hidden />}
@@ -85,9 +87,9 @@ export function SignInForm() {
           {formError}
         </p>
 
-        <HaloButton type="submit" isLoading={isSubmitting} loadingText="Entrando…" staggerLabel={false} className="w-full">
-          Entrar
-        </HaloButton>
+        <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? "Entrando…" : "Entrar"}
+        </Button>
       </form>
     </div>
   )
